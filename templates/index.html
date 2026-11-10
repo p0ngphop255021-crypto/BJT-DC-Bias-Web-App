@@ -26,6 +26,31 @@
     {% if error %}
     <div class="error">{{ error }}</div>
     {% endif %}
+
+    {% if result %}
+    <section class="results">
+      <h2>DC Operating Point</h2>
+      <p class="region">Operating Region: <strong>{{ result.region }}</strong></p>
+
+      {% if result.warnings %}
+      <ul class="warnings">
+        {% for w in result.warnings %}
+        <li class="warning">{{ w }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      <table>
+        <tr><th>VB</th><td>{{ "%.3f"|format(result.vb) }} V</td></tr>
+        <tr><th>VE</th><td>{{ "%.3f"|format(result.ve) }} V</td></tr>
+        <tr><th>VC</th><td>{{ "%.3f"|format(result.vc) }} V</td></tr>
+        <tr><th>VCE</th><td>{{ "%.3f"|format(result.vce) }} V</td></tr>
+        <tr><th>IC</th><td>{{ "%.3f"|format(result.ic * 1000) }} mA</td></tr>
+        <tr><th>IB</th><td>{{ "%.3f"|format(result.ib * 1000000) }} µA</td></tr>
+        <tr><th>IE</th><td>{{ "%.3f"|format(result.ie * 1000) }} mA</td></tr>
+      </table>
+    </section>
+    {% endif %}
   </main>
 </body>
 </html>

@@ -52,5 +52,39 @@ class TestPostValidation(unittest.TestCase):
         self.assertIn("จำกัด", resp.get_data(as_text=True))
 
 
+class TestPostResults(unittest.TestCase):
+    def setUp(self):
+        self.client = app.test_client()
+        self.valid = {
+            "vcc": "12", "r1": "100", "r2": "22", "rc": "2.2",
+            "re": "1", "beta": "100", "vbe": "0.7",
+        }
+
+    def test_post_reference_shows_values(self):
+        resp = self.client.post("/calculate", data=self.valid)
+        self.assertEqual(resp.status_code, 200)
+        html = resp.get_data(as_text=True)
+        self.assertIn("8.052", html)    # VCE [V]
+        self.assertIn("12.299", html)   # IB [uA]
+        self.assertIn("1.230", html)    # IC [mA]
+        self.assertIn("Forward Active", html)
+
+    def test_post_saturation_shows_warning(self):
+        data = dict(self.valid, rc="10")
+        resp = self.client.post("/calculate", data=data)
+        html = resp.get_data(as_text=True)
+        self.assertIn("Saturation", html)
+        self.assertIn("เชื่อถือไม่ได้", html)
+        self.assertNotIn("Forward Active", html)
+
+    def test_post_cutoff_shows_warning(self):
+        data = dict(self.valid, vcc="5", r2="10")
+        resp = self.client.post("/calculate", data=data)
+        html = resp.get_data(as_text=True)
+        self.assertIn("Cutoff", html)
+        self.assertIn("เชื่อถือไม่ได้", html)
+        self.assertNotIn("Forward Active", html)
+
+
 if __name__ == "__main__":
     unittest.main()
