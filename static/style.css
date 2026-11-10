@@ -1,0 +1,140 @@
+/* BJT DC Bias Calculator — responsive single/double column layout */
+:root {
+  --ink: #1f2933;
+  --muted: #52606d;
+  --line: #d9e2ec;
+  --bg: #f7f9fc;
+  --card: #ffffff;
+  --accent: #1d4ed8;
+  --accent-dark: #1e40af;
+  --error-bg: #fdecea;
+  --error-line: #e02424;
+  --warn-bg: #fff8e1;
+  --warn-line: #b7791f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+p { color: var(--muted); margin-top: 0; }
+
+form {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Single column on small screens, two columns on wide screens */
+.fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (min-width: 640px) {
+  .fields { grid-template-columns: 1fr 1fr; }
+}
+
+.fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.fields input {
+  padding: 0.5rem 0.6rem;
+  font-size: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.fields input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button {
+  width: 100%;
+  padding: 0.7rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button:hover { background: var(--accent-dark); }
+
+.error {
+  background: var(--error-bg);
+  border: 1px solid var(--error-line);
+  border-left-width: 5px;
+  border-radius: 8px;
+  color: #8a1c1c;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.results {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.results h2 { margin-top: 0; font-size: 1.2rem; }
+
+.region strong { color: var(--accent-dark); }
+
+.warnings {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+}
+
+.warning {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-left-width: 5px;
+  border-radius: 8px;
+  color: #744210;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+th { color: var(--muted); font-weight: 600; width: 30%; }
+td { font-variant-numeric: tabular-nums; font-weight: 700; }
+tr:last-child th, tr:last-child td { border-bottom: none; }
