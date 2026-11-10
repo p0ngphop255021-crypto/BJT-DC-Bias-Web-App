@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BJT DC Bias Calculator</title>
+</head>
+<body>
+  <main class="container">
+    <h1>BJT DC Bias Calculator</h1>
+    <p>Voltage-Divider Bias (Common Emitter) — กรอกค่าในหน่วยที่ระบุ</p>
+
+    <form action="/calculate" method="post">
+      <div class="fields">
+        <label>VCC (V) <input type="text" name="vcc" value="12"></label>
+        <label>R1 (kΩ) <input type="text" name="r1" value="100"></label>
+        <label>R2 (kΩ) <input type="text" name="r2" value="22"></label>
+        <label>RC (kΩ) <input type="text" name="rc" value="2.2"></label>
+        <label>RE (kΩ) <input type="text" name="re" value="1"></label>
+        <label>β <input type="text" name="beta" value="100"></label>
+        <label>VBE (V) <input type="text" name="vbe" value="0.7"></label>
+      </div>
+      <button type="submit">Calculate DC Bias</button>
+    </form>
+
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+  </main>
+</body>
+</html>
