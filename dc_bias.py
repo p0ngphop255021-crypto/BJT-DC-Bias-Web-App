@@ -27,3 +27,67 @@ def validate_inputs(
         raise ValueError("beta ต้องมากกว่า 0")
     if not vbe > 0:
         raise ValueError("VBE ต้องมากกว่า 0")
+
+
+# Assumed collector-emitter saturation voltage used for the region check.
+VCE_SAT = 0.2
+
+_CUTOFF_WARNING = (
+    "VTH <= VBE: ทรานซิสเตอร์ตัด (Cutoff) — แบบจำลอง Forward-Active ใช้ไม่ได้ "
+    "ค่าที่แสดงเชื่อถือไม่ได้"
+)
+_SATURATION_WARNING = (
+    "VCE ต่ำกว่า 0.2 V: ทรานซิสเตอร์อิ่มตัว (Saturation) — แบบจำลอง Forward-Active "
+    "ใช้ไม่ได้ ค่าที่แสดงเชื่อถือไม่ได้"
+)
+
+
+def solve(
+    vcc: float,
+    r1: float,
+    r2: float,
+    rc: float,
+    re: float,
+    beta: float,
+    vbe: float,
+) -> dict:
+    """Solve the DC operating point (SI units in and out).
+
+    Uses the two-supply-less Thevenin approximation assuming forward-active
+    operation, then reports whether that assumption actually holds.
+    """
+    validate_inputs(vcc, r1, r2, rc, re, beta, vbe)
+
+    vth = vcc * r2 / (r1 + r2)
+    rth = r1 * r2 / (r1 + r2)
+    ib = (vth - vbe) / (rth + (beta + 1.0) * re)
+    ic = beta * ib
+    ie = (beta + 1.0) * ib
+    ve = ie * re
+    vb = ve + vbe
+    vc = vcc - ic * rc
+    vce = vc - ve
+
+    if vth <= vbe:
+        region = "Cutoff"
+        warnings = [_CUTOFF_WARNING]
+    elif vce < VCE_SAT:
+        region = "Saturation"
+        warnings = [_SATURATION_WARNING]
+    else:
+        region = "Forward Active"
+        warnings = []
+
+    return {
+        "vth": vth,
+        "rth": rth,
+        "ib": ib,
+        "ic": ic,
+        "ie": ie,
+        "vb": vb,
+        "ve": ve,
+        "vc": vc,
+        "vce": vce,
+        "region": region,
+        "warnings": warnings,
+    }
