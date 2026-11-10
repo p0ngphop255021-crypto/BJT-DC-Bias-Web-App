@@ -68,6 +68,12 @@ def solve(
     vc = vcc - ic * rc
     vce = vc - ve
 
+    # Huge-but-finite inputs can overflow mid-solve (e.g. r1*r2) — reject the
+    # non-finite results instead of classifying/rendering them.
+    results = (vth, rth, ib, ic, ie, vb, ve, vc, vce)
+    if not all(math.isfinite(v) for v in results):
+        raise ValueError("ค่าทุกช่องต้องเป็นจำนวนจริงที่จำกัด (finite)")
+
     if vth <= vbe:
         region = "Cutoff"
         warnings = [_CUTOFF_WARNING]

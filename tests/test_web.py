@@ -51,6 +51,14 @@ class TestPostValidation(unittest.TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("จำกัด", resp.get_data(as_text=True))
 
+    def test_post_overflow_shows_error(self):
+        # Finite input that overflows mid-solve must error, never render nan.
+        resp = self.post({"r1": "1e305", "r2": "1e305"})
+        self.assertEqual(resp.status_code, 200)
+        html = resp.get_data(as_text=True)
+        self.assertIn("จำกัด", html)
+        self.assertNotIn("nan V", html)
+
 
 class TestPostResults(unittest.TestCase):
     def setUp(self):

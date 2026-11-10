@@ -56,6 +56,12 @@ class TestSolveReferenceCase(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "VCC ต้องมากกว่า 0"):
             solve(0.0, 100_000.0, 22_000.0, 2_200.0, 1_000.0, 100.0, 0.7)
 
+    def test_solve_rejects_overflow_to_non_finite(self):
+        # Huge-but-finite inputs pass validate_inputs but overflow mid-solve
+        # (r1*r2 = 1e610) -> results must be rejected, not rendered as nan.
+        with self.assertRaisesRegex(ValueError, "จำกัด"):
+            solve(12.0, 1e305, 1e305, 2_200.0, 1_000.0, 100.0, 0.7)
+
 
 class TestSolveRegions(unittest.TestCase):
     def test_solve_cutoff(self):

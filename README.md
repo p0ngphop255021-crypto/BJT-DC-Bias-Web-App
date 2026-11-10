@@ -44,7 +44,7 @@ python -m unittest discover -s tests -v
 app.py                 # Flask routes (HTTP layer เท่านั้น)
 dc_bias.py             # สมการ + validation ล้วน ๆ ไม่รู้จัก Flask/HTTP
 templates/index.html   # ฟอร์ม + ตารางผล (Jinja)
-static/style.css       # _styles responsive
+static/style.css       # styles responsive
 tests/                 # unittest suite
 docs/                  # design note, validation evidence, plan
 requirements.txt       # Flask==3.1.3 (pin)
