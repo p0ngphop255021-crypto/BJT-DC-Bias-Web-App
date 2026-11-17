@@ -94,5 +94,68 @@ class TestPostResults(unittest.TestCase):
         self.assertNotIn("Forward Active", html)
 
 
+class TestModeRouting(unittest.TestCase):
+    def setUp(self):
+        self.client = app.test_client()
+
+    def test_missing_mode_defaults_to_divider(self):
+        resp = self.client.post("/calculate", data={
+            "vcc": "12", "r1": "100", "r2": "22", "rc": "2.2",
+            "re": "1", "beta": "100", "vbe": "0.7"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("8.052", resp.get_data(as_text=True))
+
+    def test_unknown_mode_shows_error_not_divider_fallback(self):
+        resp = self.client.post("/calculate", data={
+            "mode": "bogus", "vcc": "12", "r1": "100", "r2": "22", "rc": "2.2",
+            "re": "1", "beta": "100", "vbe": "0.7"})
+        html = resp.get_data(as_text=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("โหมดวงจรไม่ถูกต้อง", html)
+        self.assertNotIn("8.052", html)
+
+    def test_fixed_post_reference(self):
+        resp = self.client.post("/calculate", data={
+            "mode": "fixed", "vcc": "12", "rb": "1000", "rc": "2.2",
+            "beta": "100", "vbe": "0.7"})
+        html = resp.get_data(as_text=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("9.514", html)   # VCE [V]
+        self.assertIn("1.130", html)   # IC [mA]
+        self.assertIn("Forward Active", html)
+
+    def test_fixed_ignores_unrelated_fields(self):
+        resp = self.client.post("/calculate", data={
+            "mode": "fixed", "vcc": "12", "rb": "1000", "rc": "2.2",
+            "beta": "100", "vbe": "0.7", "r1": "abc", "r2": "", "re": "-5"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("9.514", resp.get_data(as_text=True))
+
+    def test_emitter_post_reference(self):
+        resp = self.client.post("/calculate", data={
+            "mode": "emitter", "vcc": "12", "rb": "1000", "rc": "2.2",
+            "re": "1", "beta": "100", "vbe": "0.7"})
+        html = resp.get_data(as_text=True)
+        self.assertIn("8.705", html)   # VCE [V]
+        self.assertIn("1.026", html)   # IC [mA]
+
+    def test_emitter_re_change_moves_ic_down(self):
+        resp = self.client.post("/calculate", data={
+            "mode": "emitter", "vcc": "12", "rb": "1000", "rc": "2.2",
+            "re": "2", "beta": "100", "vbe": "0.7"})
+        html = resp.get_data(as_text=True)
+        self.assertIn("8.033", html)
+        self.assertIn("0.940", html)
+
+    def test_fixed_zero_rb_shows_error_without_stale_result(self):
+        resp = self.client.post("/calculate", data={
+            "mode": "fixed", "vcc": "12", "rb": "0", "rc": "2.2",
+            "beta": "100", "vbe": "0.7"})
+        html = resp.get_data(as_text=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("RB, RC ต้องมากกว่า 0", html)
+        self.assertNotIn("9.514", html)
+
+
 if __name__ == "__main__":
     unittest.main()
