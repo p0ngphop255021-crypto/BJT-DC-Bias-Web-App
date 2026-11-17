@@ -1,6 +1,6 @@
 import unittest
 
-from dc_bias import solve, validate_inputs
+from dc_bias import solve, solve_fixed, validate_inputs
 
 
 class TestValidateInputs(unittest.TestCase):
@@ -78,6 +78,47 @@ class TestSolveRegions(unittest.TestCase):
         self.assertLess(r["vce"], 0.2)
         self.assertEqual(r["region"], "Saturation")
         self.assertEqual(len(r["warnings"]), 1)
+        self.assertIn("เชื่อถือไม่ได้", r["warnings"][0])
+
+
+class TestFixedBias(unittest.TestCase):
+    def test_reference_case(self):
+        # VCC=12, RB=1M, RC=2.2k, beta=100, VBE=0.7
+        r = solve_fixed(12.0, 1_000_000.0, 2_200.0, 100.0, 0.7)
+        self.assertAlmostEqual(r["ib"], 1.13e-05, places=9)
+        self.assertAlmostEqual(r["ic"], 1.13e-03, places=9)
+        self.assertAlmostEqual(r["ie"], 1.1413e-03, places=9)
+        self.assertAlmostEqual(r["vb"], 0.7, places=9)
+        self.assertAlmostEqual(r["ve"], 0.0, places=9)
+        self.assertAlmostEqual(r["vc"], 9.514, places=9)
+        self.assertAlmostEqual(r["vce"], 9.514, places=9)
+        self.assertEqual(r["mode"], "Fixed Bias")
+        self.assertEqual(r["region"], "Forward Active")
+        self.assertEqual(r["warnings"], [])
+
+    def test_zero_rb_rejected_names_rb(self):
+        with self.assertRaisesRegex(ValueError, "RB, RC ต้องมากกว่า 0"):
+            solve_fixed(12.0, 0.0, 2_200.0, 100.0, 0.7)
+
+    def test_non_finite_rejected(self):
+        with self.assertRaisesRegex(ValueError, "จำกัด"):
+            solve_fixed(12.0, float("inf"), 2_200.0, 100.0, 0.7)
+
+    def test_overflow_rejected(self):
+        # rb เล็กมาก: ib finite แต่ beta*ib ล้นเป็น inf -> ต้องถูกปฏิเสธ
+        with self.assertRaisesRegex(ValueError, "จำกัด"):
+            solve_fixed(12.0, 1e-307, 2_200.0, 100.0, 0.7)
+
+    def test_cutoff_when_vcc_below_vbe(self):
+        r = solve_fixed(0.5, 1_000_000.0, 2_200.0, 100.0, 0.7)
+        self.assertLess(r["ib"], 0.0)
+        self.assertEqual(r["region"], "Cutoff")
+        self.assertIn("เชื่อถือไม่ได้", r["warnings"][0])
+
+    def test_saturation(self):
+        r = solve_fixed(12.0, 1_000_000.0, 20_000.0, 100.0, 0.7)
+        self.assertLess(r["vce"], 0.2)
+        self.assertEqual(r["region"], "Saturation")
         self.assertIn("เชื่อถือไม่ได้", r["warnings"][0])
 
 
