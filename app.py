@@ -73,7 +73,8 @@ def _echo_form(mode: str, form) -> dict:
 def index():
     mode = request.args.get("mode", DEFAULT_MODE)
     error = None
-    if mode not in MODES:
+    mode_known = mode in MODES
+    if not mode_known:
         error = UNKNOWN_MODE_ERROR
         mode = DEFAULT_MODE
     return render_template(
@@ -82,6 +83,7 @@ def index():
         result=None,
         mode=mode,
         mode_label=MODES[mode],
+        mode_known=mode_known,
         modes=MODES,
         form=dict(FIELD_DEFAULTS[mode]),
     )
@@ -93,8 +95,9 @@ def calculate():
     mode = request.form.get("mode", DEFAULT_MODE)
     error = None
     result = None
+    mode_known = mode in MODES
 
-    if mode not in MODES:
+    if not mode_known:
         error = UNKNOWN_MODE_ERROR
         mode = DEFAULT_MODE
     else:
@@ -116,6 +119,7 @@ def calculate():
         result=result,
         mode=mode,
         mode_label=MODES[mode],
+        mode_known=mode_known,
         modes=MODES,
         form=_echo_form(mode, request.form),
     )

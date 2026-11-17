@@ -9,7 +9,7 @@
 <body>
   <main class="container">
     <h1>BJT DC Bias Calculator</h1>
-    <p>{{ mode_label }} (Common Emitter) — กรอกค่าในหน่วยที่ระบุ</p>
+    <p>{% if mode_known %}{{ mode_label }} (Common Emitter) — กรอกค่าในหน่วยที่ระบุ{% else %}เลือกโหมดวงจรจากเมนูด้านล่าง{% endif %}</p>
 
     <form class="mode-picker" action="/" method="get">
       <label for="mode-select">โหมดวงจร</label>
@@ -42,7 +42,7 @@
     </form>
 
     {% if error %}
-    <div class="error">{{ mode_label }}: {{ error }}</div>
+    <div class="error">{% if mode_known %}{{ mode_label }}: {% endif %}{{ error }}</div>
     {% endif %}
 
     {% if result %}

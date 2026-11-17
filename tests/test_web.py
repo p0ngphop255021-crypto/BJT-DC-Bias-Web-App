@@ -191,6 +191,19 @@ class TestModeForm(unittest.TestCase):
             "re": "1", "beta": "100", "vbe": "0.7"}).get_data(as_text=True)
         self.assertIn("Emitter Bias", html)
 
+    def test_unknown_mode_error_not_labelled_with_fallback_mode(self):
+        html = self.client.get("/?mode=bogus").get_data(as_text=True)
+        self.assertIn("โหมดวงจรไม่ถูกต้อง", html)
+        self.assertNotIn("Voltage Divider Bias: โหมดวงจรไม่ถูกต้อง", html)
+        self.assertNotIn("Voltage Divider Bias (Common Emitter)", html)
+
+    def test_unknown_mode_post_error_not_labelled_with_fallback_mode(self):
+        html = self.client.post(
+            "/calculate", data={"mode": "bogus", "vcc": "12"}
+        ).get_data(as_text=True)
+        self.assertIn("โหมดวงจรไม่ถูกต้อง", html)
+        self.assertNotIn("Voltage Divider Bias: โหมดวงจรไม่ถูกต้อง", html)
+
     def test_error_keeps_entered_value(self):
         html = self.client.post("/calculate", data={
             "mode": "fixed", "vcc": "12", "rb": "0", "rc": "2.2",
