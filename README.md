@@ -86,6 +86,14 @@ requirements.txt       # Flask==3.1.3 (pin)
 - Repository: <https://github.com/p0ngphop255021-crypto/BJT-DC-Bias-Web-App>
 - Commit SHA ของงาน Lab 03 (โค้ด + การตรวจรับ): `35e2199`
 
+## เส้นทางข้อมูล (ตรวจย้อนกลับได้)
+
+1. ฟอร์มส่ง `mode` + ค่าดิบ (ตัวต้านทานเป็น kΩ) ไป `POST /calculate`
+2. `app.py::_parse_form` แปลงเฉพาะช่องของโหมดนั้นเป็น float แล้วคูณ 1000 เป็น Ω
+3. `app.py::_solve_for_mode` เลือก `dc_bias.solve` / `solve_fixed` / `solve_emitter` ตาม `mode`
+4. ฟังก์ชันใน `dc_bias.py` คำนวณเป็น SI (Ω, V, A) แล้วคืน `dict`
+5. `templates/index.html` แปลงหน่วยแสดงผลเป็น mA/µA และแสดง warning ที่ route ส่งมา (ไม่มีสมการใน template)
+
 ## ส่วนที่ AI ช่วย และส่วนที่นักศึกษาตรวจ
 
 - AI ช่วย: ร่างฟังก์ชัน `solve_fixed` / `solve_emitter`, การเลือกฟังก์ชันตามโหมดใน `app.py`, ฟอร์ม/สไตล์, ชุดเทสต์ และเอกสาร

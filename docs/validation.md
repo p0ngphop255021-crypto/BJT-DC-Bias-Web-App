@@ -68,7 +68,7 @@ Forward Active
 ```bash
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-.venv\Scripts\python.exe -m unittest discover -s tests -v   # 47 tests, 0 failures (หลัง Lab 03)
+.venv\Scripts\python.exe -m unittest discover -s tests -v   # 49 tests, 0 failures (หลัง Lab 03)
 ```
 
 ## Lab 03 — สามโหมดไบอัส (2026-11-17)
@@ -119,4 +119,26 @@ python -m venv .venv
 - A4 ตรวจว่าโหมดยังเป็น Emitter และ VCC/RB/RC/β/VBE เท่าเดิม ก่อนเปลี่ยนเฉพาะ RE
 - A5 ตรวจว่า route คืน HTTP 200 และไม่ render ผลของรอบก่อน (ไม่มี `<section class="results">`)
 - เทสต์อัตโนมัติครอบคลุมเส้นทางเดียวกัน: `TestModeRouting`, `TestModeForm`, `TestFixedBias`, `TestEmitterBias`
+
+### 5. เส้นทางของ RE ใน A4 (จากฟอร์มถึงสมการ)
+
+```
+<input name="re" value="2">            templates/index.html  (kΩ บนฟอร์ม)
+        ↓ POST /calculate
+app.py::_parse_form → float("2") * 1000 = 2000.0 Ω
+        ↓ mode == "emitter"
+app.py::_solve_for_mode → dc_bias.solve_emitter(vcc, rb, rc, re=2000.0, beta, vbe)
+        ↓
+dc_bias.py::solve_emitter
+  ib  = (12 − 0.70) / (1e6 + 101 × 2000) = 9.400998e-06 A
+  ic  = 100 × ib  = 0.940100 mA      (A3 ที่ RE=1k ได้ 1.026340 mA → ลดลง)
+  ie  = 101 × ib
+  ve  = ie × 2000 = 1.899002 V
+  vce = (12 − ic × 2200) − ve = 8.032779 V
+        ↓
+templates/index.html แสดง IC เป็น mA (×1000) และ VCE เป็น V
+```
+
+ถ้าลืมคูณ 1000 ที่ `_parse_form` หรือฟังก์ชันไม่ได้รับ `re` ค่า IC/VCE ของ A4 จะไม่เท่า A3/ค่าอ้างอิง และเทสต์ `TestEmitterBias.test_larger_re_lowers_ic` + `TestModeRouting.test_emitter_re_change_moves_ic_down` จะจับไว้
+
 
