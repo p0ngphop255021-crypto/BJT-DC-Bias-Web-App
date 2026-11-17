@@ -9,28 +9,45 @@
 <body>
   <main class="container">
     <h1>BJT DC Bias Calculator</h1>
-    <p>Voltage-Divider Bias (Common Emitter) — กรอกค่าในหน่วยที่ระบุ</p>
+    <p>{{ mode_label }} (Common Emitter) — กรอกค่าในหน่วยที่ระบุ</p>
+
+    <form class="mode-picker" action="/" method="get">
+      <label for="mode-select">โหมดวงจร</label>
+      <select name="mode" id="mode-select">
+        {% for key, label in modes.items() %}
+        <option value="{{ key }}"{% if key == mode %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">เลือกโหมด</button>
+    </form>
 
     <form action="/calculate" method="post">
+      <input type="hidden" name="mode" value="{{ mode }}">
       <div class="fields">
-        <label>VCC (V) <input type="text" name="vcc" value="12"></label>
-        <label>R1 (kΩ) <input type="text" name="r1" value="100"></label>
-        <label>R2 (kΩ) <input type="text" name="r2" value="22"></label>
-        <label>RC (kΩ) <input type="text" name="rc" value="2.2"></label>
-        <label>RE (kΩ) <input type="text" name="re" value="1"></label>
-        <label>β <input type="text" name="beta" value="100"></label>
-        <label>VBE (V) <input type="text" name="vbe" value="0.7"></label>
+        <label for="vcc">VCC (V) <input type="text" id="vcc" name="vcc" value="{{ form.vcc }}"></label>
+        {% if mode == "divider" %}
+        <label for="r1">R1 (kΩ) <input type="text" id="r1" name="r1" value="{{ form.r1 }}"></label>
+        <label for="r2">R2 (kΩ) <input type="text" id="r2" name="r2" value="{{ form.r2 }}"></label>
+        {% elif mode == "fixed" or mode == "emitter" %}
+        <label for="rb">RB (kΩ) <input type="text" id="rb" name="rb" value="{{ form.rb }}"></label>
+        {% endif %}
+        <label for="rc">RC (kΩ) <input type="text" id="rc" name="rc" value="{{ form.rc }}"></label>
+        {% if mode == "divider" or mode == "emitter" %}
+        <label for="re">RE (kΩ) <input type="text" id="re" name="re" value="{{ form.re }}"></label>
+        {% endif %}
+        <label for="beta">β <input type="text" id="beta" name="beta" value="{{ form.beta }}"></label>
+        <label for="vbe">VBE (V) <input type="text" id="vbe" name="vbe" value="{{ form.vbe }}"></label>
       </div>
       <button type="submit">Calculate DC Bias</button>
     </form>
 
     {% if error %}
-    <div class="error">{{ error }}</div>
+    <div class="error">{{ mode_label }}: {{ error }}</div>
     {% endif %}
 
     {% if result %}
     <section class="results">
-      <h2>DC Operating Point</h2>
+      <h2>DC Operating Point — {{ mode_label }}</h2>
       <p class="region">Operating Region: <strong>{{ result.region }}</strong></p>
 
       {% if result.warnings %}

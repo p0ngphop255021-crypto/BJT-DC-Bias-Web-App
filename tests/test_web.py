@@ -157,5 +157,46 @@ class TestModeRouting(unittest.TestCase):
         self.assertNotIn("9.514", html)
 
 
+class TestModeForm(unittest.TestCase):
+    def setUp(self):
+        self.client = app.test_client()
+
+    def test_default_get_shows_divider_fields(self):
+        html = self.client.get("/").get_data(as_text=True)
+        for field in ("vcc", "r1", "r2", "rc", "re", "beta", "vbe"):
+            self.assertIn(f'name="{field}"', html)
+        self.assertIn('<select name="mode"', html)
+
+    def test_fixed_get_shows_only_fixed_fields(self):
+        html = self.client.get("/?mode=fixed").get_data(as_text=True)
+        self.assertIn('name="rb"', html)
+        self.assertNotIn('name="r1"', html)
+        self.assertNotIn('name="re"', html)
+
+    def test_emitter_get_shows_rb_and_re(self):
+        html = self.client.get("/?mode=emitter").get_data(as_text=True)
+        self.assertIn('name="rb"', html)
+        self.assertIn('name="re"', html)
+        self.assertNotIn('name="r1"', html)
+
+    def test_unknown_mode_get_shows_error(self):
+        resp = self.client.get("/?mode=bogus")
+        html = resp.get_data(as_text=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("โหมดวงจรไม่ถูกต้อง", html)
+
+    def test_result_header_names_mode(self):
+        html = self.client.post("/calculate", data={
+            "mode": "emitter", "vcc": "12", "rb": "1000", "rc": "2.2",
+            "re": "1", "beta": "100", "vbe": "0.7"}).get_data(as_text=True)
+        self.assertIn("Emitter Bias", html)
+
+    def test_error_keeps_entered_value(self):
+        html = self.client.post("/calculate", data={
+            "mode": "fixed", "vcc": "12", "rb": "0", "rc": "2.2",
+            "beta": "100", "vbe": "0.7"}).get_data(as_text=True)
+        self.assertIn('value="0"', html)
+
+
 if __name__ == "__main__":
     unittest.main()
