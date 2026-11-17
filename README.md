@@ -84,7 +84,7 @@ requirements.txt       # Flask==3.1.3 (pin)
 ## GitHub และ Commit
 
 - Repository: <https://github.com/p0ngphop255021-crypto/BJT-DC-Bias-Web-App>
-- Commit SHA ของงาน Lab 03 (โค้ด + การตรวจรับ): `35e2199`
+- Commit SHA ของงาน Lab 03 (โค้ด + การตรวจรับ A1–A5): `2e88fed` (commit เอกสารตามหลังอาจใหม่กว่านี้)
 
 ## เส้นทางข้อมูล (ตรวจย้อนกลับได้)
 
