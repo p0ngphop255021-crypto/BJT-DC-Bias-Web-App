@@ -1,6 +1,6 @@
 import unittest
 
-from dc_bias import solve, solve_fixed, validate_inputs
+from dc_bias import solve, solve_emitter, solve_fixed, validate_inputs
 
 
 class TestValidateInputs(unittest.TestCase):
@@ -118,6 +118,48 @@ class TestFixedBias(unittest.TestCase):
     def test_saturation(self):
         r = solve_fixed(12.0, 1_000_000.0, 20_000.0, 100.0, 0.7)
         self.assertLess(r["vce"], 0.2)
+        self.assertEqual(r["region"], "Saturation")
+        self.assertIn("เชื่อถือไม่ได้", r["warnings"][0])
+
+
+class TestEmitterBias(unittest.TestCase):
+    def test_reference_case(self):
+        # A3: VCC=12, RB=1M, RC=2.2k, RE=1k, beta=100, VBE=0.7
+        r = solve_emitter(12.0, 1_000_000.0, 2_200.0, 1_000.0, 100.0, 0.7)
+        self.assertAlmostEqual(r["ib"], 1.026339691e-05, places=9)
+        self.assertAlmostEqual(r["ic"], 1.026339691e-03, places=9)
+        self.assertAlmostEqual(r["ie"], 1.036603088e-03, places=9)
+        self.assertAlmostEqual(r["vb"], 1.736603088, places=9)
+        self.assertAlmostEqual(r["ve"], 1.036603088, places=9)
+        self.assertAlmostEqual(r["vc"], 9.742052679, places=9)
+        self.assertAlmostEqual(r["vce"], 8.705449591, places=9)
+        self.assertEqual(r["mode"], "Emitter Bias")
+        self.assertEqual(r["region"], "Forward Active")
+
+    def test_larger_re_lowers_ic(self):
+        # A4: RE=2k -> IC ลดจาก A3
+        base = solve_emitter(12.0, 1_000_000.0, 2_200.0, 1_000.0, 100.0, 0.7)
+        larger = solve_emitter(12.0, 1_000_000.0, 2_200.0, 2_000.0, 100.0, 0.7)
+        self.assertLess(larger["ic"], base["ic"])
+        self.assertAlmostEqual(larger["ic"], 9.400998336106e-04, places=9)
+        self.assertAlmostEqual(larger["vce"], 8.032778702, places=9)
+
+    def test_zero_re_rejected_names_re(self):
+        with self.assertRaisesRegex(ValueError, "RB, RC, RE ต้องมากกว่า 0"):
+            solve_emitter(12.0, 1_000_000.0, 2_200.0, 0.0, 100.0, 0.7)
+
+    def test_overflow_rejected(self):
+        # rb และ re เล็กมากจน ib ล้นเป็น inf กลางการคำนวณ -> ต้องถูกปฏิเสธ
+        with self.assertRaisesRegex(ValueError, "จำกัด"):
+            solve_emitter(12.0, 1e-307, 2_200.0, 1e-307, 100.0, 0.7)
+
+    def test_cutoff_when_vcc_below_vbe(self):
+        r = solve_emitter(0.5, 1_000_000.0, 2_200.0, 1_000.0, 100.0, 0.7)
+        self.assertEqual(r["region"], "Cutoff")
+        self.assertIn("เชื่อถือไม่ได้", r["warnings"][0])
+
+    def test_saturation(self):
+        r = solve_emitter(12.0, 1_000_000.0, 20_000.0, 1_000.0, 100.0, 0.7)
         self.assertEqual(r["region"], "Saturation")
         self.assertIn("เชื่อถือไม่ได้", r["warnings"][0])
 

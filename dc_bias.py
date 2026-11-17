@@ -158,3 +158,50 @@ def solve_fixed(
         "region": region,
         "warnings": warnings,
     }
+
+
+def solve_emitter(
+    vcc: float,
+    rb: float,
+    rc: float,
+    re: float,
+    beta: float,
+    vbe: float,
+) -> dict:
+    """Solve single-supply Emitter Bias: RB from VCC to base, RE to ground."""
+    _validate_mode_inputs(vcc, {"RB": rb, "RC": rc, "RE": re}, beta, vbe)
+
+    ib = (vcc - vbe) / (rb + (beta + 1.0) * re)
+    ic = beta * ib
+    ie = (beta + 1.0) * ib
+    ve = ie * re
+    vb = ve + vbe
+    vc = vcc - ic * rc
+    vce = vc - ve
+
+    results = (ib, ic, ie, vb, ve, vc, vce)
+    if not all(math.isfinite(v) for v in results):
+        raise ValueError("ค่าทุกช่องต้องเป็นจำนวนจริงที่จำกัด (finite)")
+
+    if ib <= 0:
+        region = "Cutoff"
+        warnings = [_CUTOFF_WARNING_IB]
+    elif vce < VCE_SAT:
+        region = "Saturation"
+        warnings = [_SATURATION_WARNING]
+    else:
+        region = "Forward Active"
+        warnings = []
+
+    return {
+        "mode": "Emitter Bias",
+        "ib": ib,
+        "ic": ic,
+        "ie": ie,
+        "vb": vb,
+        "ve": ve,
+        "vc": vc,
+        "vce": vce,
+        "region": region,
+        "warnings": warnings,
+    }
