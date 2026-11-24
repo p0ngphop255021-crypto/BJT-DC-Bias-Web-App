@@ -59,6 +59,12 @@ python -m flask --app app run --debug
 - ตาราง **Analytical reference (dc_bias.py)** แยกต่างหาก — โมเดล β/VBE ไม่ใช่ SPICE model จึงไม่ต้องตรงกัน
 - ถ้า engine ผิดพลาด หน้าจะแสดงข้อความไทยและ **ไม่มีกราฟ/ค่าค้างจากรอบก่อน** (HTTP 200 เสมอ)
 
+กราฟเป็น **inline SVG ที่สร้างตอนกด Run** จึงไม่มีไฟล์ `.png` แยกในหน้าเว็บ — ภาพด้านล่างเป็น screenshot ของผลที่รันจริง (เก็บไว้ใน `docs/captures/`):
+
+| AC — Bode (gain/phase) | Transient — Vin/Vout |
+|---|---|
+| ![AC Bode plot](docs/captures/lab04-ac-chart.png) | ![Transient waveform](docs/captures/lab04-tran-chart.png) |
+
 > ต้องรันผ่าน Local Web Server เท่านั้น — ห้ามเปิดไฟล์ HTML ด้วย `file://`
 
 ## รัน automated tests

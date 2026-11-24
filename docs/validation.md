@@ -174,7 +174,9 @@ templates/index.html แสดง IC เป็น mA (×1000) และ VCE เ�
 | B7 | Invalid input + engine unavailable | ใส่ `RE=0` แล้วรัน / ทดสอบจำลองไม่มี binary | ข้อความไทย, HTTP 200, ไม่มีกราฟหรือค่าค้าง | `ngspice: R1, R2, RC, RE, RL ต้องมากกว่า 0` · ไม่มี `.spice-results` · ไม่มี `<svg>` · ค่า `0` ยังอยู่ในช่อง · engine-unavailable ตรวจด้วย `test_missing_binary_raises_thai_error` + `test_simulate_engine_error_has_no_results` (browser sub-case: NOT RUN) | PASS (browser) / NOT RUN (engine-unavailable ใน browser) |
 | B8 | Responsive desktop/mobile | Playwright `--viewport-size 1280,900` และ `390,844` แบบ full-page | อ่านได้ ไม่ตัดกราฟ | `docs/captures/lab04-desktop-viewport.png`, `docs/captures/lab04-mobile-viewport.png` · ฟอร์มเป็นคอลัมน์เดียวบน 390 px, กราฟอยู่ใน `.chart { overflow-x:auto }` | PASS |
 
-หลักฐานภาพเพิ่มเติมจาก OpenCode Browser: `docs/captures/lab04-desktop-dc.png` (ผล DC สำเร็จ), `docs/captures/lab04-narrow-dc.png` (ภาพแคบจาก screenshot tool — **ไม่ใช่** viewport จริง ใช้ `lab04-mobile-viewport.png` เป็นหลักฐาน mobile ที่แท้จริง)
+หลักฐานภาพกราฟจาก OpenCode Browser (รันจริงแล้วกด Run): `docs/captures/lab04-ac-chart.png` (Bode gain/phase), `docs/captures/lab04-tran-chart.png` (Vin/Vout) — ทั้งสองเป็น inline SVG ที่แอปสร้างจาก rawfile ไม่ใช่ภาพพื้นหลัง
+
+หลักฐานภาพเพิ่มเติมจาก OpenCode Browser: `docs/captures/lab04-desktop-dc.png` (ผล DC สำเร็จ), `docs/captures/lab04-narrow-dc.png` (ภาพแคบจาก screenshot tool — **ไม่ใช่** viewport จริง ใช้ `lab04-mobile-viewport.png` เป็นหลักฐาน mobile ที่แท้จริง) หมายเหตุ: ไฟล์ `lab04-*-viewport.png` ถ่ายตอนยังไม่ได้รัน simulation จึงไม่มีกราฟตามออกแบบ — ต้องดูสองไฟล์ `*-chart.png` ข้างบนหรือกด Run ในเบราว์เซอร์
 
 ## 4. ความสอดคล้องข้าม analysis (ตรวจย้อนกลับได้)
 
