@@ -73,6 +73,16 @@ python -m flask --app app run --debug
 
 **ทำไมกราฟ Tran สองภาพถึงดูคล้ายกัน?** แกน Y คำนวณอัตโนมัติจากข้อมูล (`nice_range`) เมื่อเพิ่ม amplitude 2× ทั้ง Vin และ Vout สเกลแกน Y ก็เพิ่ม 2× ตาม (`±0.02 V` → `±0.04 V`) รูปคลื่นจึงอยู่ตำแหน่งพิกเซลใกล้เดิม — แต่จำนวนจุดเพิ่ม 1008 → 2008 (ความถี่ 1→2 kHz) และค่าบนแกนเปลี่ยนจริง ตรวจตัวเลขได้ใน `docs/validation.md` B6 ส่วน AC กับ Tran เป็นคนละชนิดกราฟ (2 panel log-frequency เทียบ 1 panel time-domain)
 
+### ดูบน Phone viewport
+
+- **ในเบราว์เซอร์:** กด `F12` → ปุ่ม Device toolbar (`Ctrl+Shift+M`) → เลือก `390×844` หรือ iPhone → reload `http://127.0.0.1:5000/`
+- **หรือ Playwright CLI:** `npx playwright screenshot --channel chrome --viewport-size "390,844" --full-page http://127.0.0.1:5000/ docs/captures/lab04-mobile-viewport.png`
+- ภาพด้านล่างถ่ายจาก viewport **390 px จริง** หลังกด Run (ไม่ใช่การย่อภาพจาก desktop): `window.innerWidth = 390`, `document.body.scrollWidth = 390` → ไม่มี horizontal scroll ทั้งหน้า; กราฟกว้าง 560 px อยู่ในกรอบ `.chart` กว้าง 318 px → **เลื่อนแนวนอนเฉพาะในกรอบกราฟ**
+
+| AC บนมือถือ | Transient บนมือถือ |
+|---|---|
+| ![AC mobile](docs/captures/lab04-mobile-ac-chart.png) | ![Tran mobile](docs/captures/lab04-mobile-tran-chart.png) |
+
 > ต้องรันผ่าน Local Web Server เท่านั้น — ห้ามเปิดไฟล์ HTML ด้วย `file://`
 
 ## รัน automated tests

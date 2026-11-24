@@ -180,6 +180,8 @@ templates/index.html แสดง IC เป็น mA (×1000) และ VCE เ�
 
 หลักฐานภาพเพิ่มเติมจาก OpenCode Browser: `docs/captures/lab04-desktop-dc.png` (ผล DC สำเร็จ), `docs/captures/lab04-narrow-dc.png` (ภาพแคบจาก screenshot tool — **ไม่ใช่** viewport จริง ใช้ `lab04-mobile-viewport.png` เป็นหลักฐาน mobile ที่แท้จริง) หมายเหตุ: ไฟล์ `lab04-*-viewport.png` ถ่ายตอนยังไม่ได้รัน simulation จึงไม่มีกราฟตามออกแบบ — ต้องดูสองไฟล์ `*-chart.png` ข้างบนหรือกด Run ในเบราว์เซอร์
 
+หลักฐานกราฟบน **phone viewport จริง 390×844** (Playwright Chrome, `deviceScaleFactor=2`, กด Run แล้ววัด DOM): `docs/captures/lab04-mobile-ac-chart.png`, `docs/captures/lab04-mobile-tran-chart.png` — วัดได้ `window.innerWidth = 390`, `document.body.scrollWidth = 390` (ไม่มี horizontal scroll ทั้งหน้า), `chart.scrollWidth = 560`, `chart.clientWidth = 318` → กราฟกว้างกว่าในกรอบ จึง **เลื่อนแนวนอนเฉพาะใน `.chart { overflow-x:auto }`** ตามออกแบบ วิธีทำซ้ำอยู่ใน `README.md` หัวข้อ **ดูบน Phone viewport**
+
 ## 4. ความสอดคล้องข้าม analysis (ตรวจย้อนกลับได้)
 
 | ปริมาณ | จาก `.ac` | จาก `.tran` | ตรงกัน |
