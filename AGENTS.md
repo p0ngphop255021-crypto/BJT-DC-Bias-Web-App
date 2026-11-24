@@ -9,9 +9,13 @@
 ## สถาปัตยกรรม
 
 - `dc_bias.py` = pure engineering module — **ห้าม import flask หรือรู้จัก request/response/HTML** รับ float คืน float/dict (หน่วย SI)
-- `app.py` = HTTP layer เบา ๆ — parse ฟอร์ม, แปลง kΩ→Ω (`* 1000`), เรียก `solve()`, render — **ห้ามมีสมการฝังอยู่**
+- `spice_engine.py` = ngspice adapter (Lab 04) — **ห้าม import flask หรือแตะ HTML** รับ SI float คืน netlist/dict; อ่านผลจาก ASCII rawfile เท่านั้น ห้ามฮาร์ดโค้ดค่าจำลอง
+- `spice_plots.py` = pure helper แปลง series เป็น SVG string — ไม่มี Flask, ไม่มี file I/O
+- `app.py` = HTTP layer เบา ๆ — parse ฟอร์ม, แปลง kΩ→Ω (`* 1000`), µF→F, mV→V, เรียก `solve()`/`spice_engine.simulate()`, render — **ห้ามมีสมการฝังอยู่**
 - Template แสดงผลเท่านั้น — แปลงหน่วย display (mA/µA) ใน template ได้ แต่ห้ามคำนวณใหม่
-- **ห้ามฮาร์ดโค้ดผลลัพธ์** ใน HTML — ทุกค่าต้องมาจาก `solve()`
+- **ห้ามฮาร์ดโค้ดผลลัพธ์** ใน HTML — ทุกค่าต้องมาจาก `solve()` หรือ `spice_engine.simulate()`
+- ผล Lab 03 (analytical) กับ Lab 04 (SPICE) ต้องแสดงแยกกันเสมอ — โมเดลต่างกันจึงไม่บังคับให้ตัวเลขเท่ากัน
+- บน Windows ต้องใช้ `ngspice_con.exe` (ไม่ใช่ `ngspice.exe` ที่ detach ทันที); ใช้ env `NGSPICE_BIN` แทนการ hardcode path ในโค้ดที่อ่านจาก config
 
 ## ข้อความ error/warning
 

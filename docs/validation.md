@@ -141,4 +141,63 @@ templates/index.html แสดง IC เป็น mA (×1000) และ VCE เ�
 
 ถ้าลืมคูณ 1000 ที่ `_parse_form` หรือฟังก์ชันไม่ได้รับ `re` ค่า IC/VCE ของ A4 จะไม่เท่า A3/ค่าอ้างอิง และเทสต์ `TestEmitterBias.test_larger_re_lowers_ic` + `TestModeRouting.test_emitter_re_change_moves_ic_down` จะจับไว้
 
+---
+
+# Lab 04 — CE Amplifier Simulator (2026-11-24)
+
+## 1. Engine และแหล่งที่มาของข้อมูล
+
+- Binary จริง: `C:\Tools\ngspice\Spice64\bin\ngspice_con.exe` · `ngspice-47` (Build 2026-08-11)
+- เรียกแบบ batch: `ngspice_con -b -o run.log -r run.raw ce.cir` (args list, ไม่ใช้ `shell=True`, timeout 20 s, temp dir แยกต่อครั้ง)
+- ผลลัพธ์อ่านจาก **ASCII rawfile** ที่ ngspice เขียนเอง (`.option filetype=ascii`) — ไม่มีตัวเลขฮาร์ดโค้ด
+- โมเดลทรานซิสเตอร์: **2N3904** คัดลอกจาก ON Semiconductor datasheet `2N3904/D` หัวข้อ “Spice Model” (เก็บใน `spice_engine.BJT_MODEL_CARD`)
+- Netlist อ้างอิง: `VCC=12 V, R1=100 kΩ, R2=22 kΩ, RC=2.2 kΩ, RE=1 kΩ, RL=10 kΩ, CIN=COUT=10 µF, Vin=10 mV peak, 1 kHz`
+- ไฟล์ fixture จริงใน unit test: `tests/fixtures/ce_reference.raw/.log/.cir` บันทึกจาก netlist เดียวกันโดยมี `.op`, `.ac dec 20 10 1e+07`, `.tran 5e-06 5e-03` พร้อมกัน (OP 1 จุด, AC 121 จุด, TRAN 1008 จุด) ผลตรงกับ log ที่แนบมา
+- หมายเหตุ: `build_netlist()` ของแอป emit เฉพาะ directive ของ analysis ที่เลือก — fixture ที่มีครบ 3 plot สร้างขึ้นเพื่อทดสอบ parser โดยเฉพาะ
+
+## 2. ทำไมค่าของ ngspice จึงไม่เท่า `dc_bias.py`
+
+`dc_bias.py` ใช้โมเดล Forward-Active แบบ β/VBE คงที่ (β=100, VBE=0.7 V) → IC = **1.229858 mA**, VCE = **8.052155 V** (คำนวณอิสระแล้วในข้อ 2 ของ Lab 03) ฝั่ง SPICE ใช้โมเดล Gummel–Poon ของ 2N3904 (BF=416.4, IS=6.734 fA, VAF=74.03 V …) → IC = **1.324 mA**, VCE = **7.7543 V** ที่ bias เดียวกัน ความต่างนี้คาดหมาย และแอปแสดงสองตารางแยกกันพร้อมคำอธิบาย
+
+## 3. ผลที่สังเกตจากเบราว์เซอร์ (B1–B8)
+
+วิธี: **OpenCode Browser** (กรอกฟอร์ม กดปุ่ม อ่านผลหลัง submit จริง) สำหรับ B1–B7 และ **Playwright CLI (Chrome, viewport 1280×900 และ 390×844)** สำหรับ B8 — ไม่ได้ใช้ Playwright MCP (ไม่มี MCP server ในเซสชันนี้)
+
+| ID | สิ่งที่ตรวจ | อินพุต/วิธี | ค่าคาดหมาย | ค่าที่เห็นจริง | สถานะ |
+|---|---|---|---|---|---|
+| B1 | Lab 03 regression | เปิด `/` แล้วกด Calculate (Divider default) + ชุดเทสต์ 90 ตัว | IC 1.230 mA, VCE 8.052 V เหมือน Lab 03 | IC **1.230 mA**, VCE **8.052 V**, VB 1.942, VE 1.242, VC 9.294, IB 12.299 µA; 90 tests OK | PASS |
+| B2 | DC จาก ngspice จริง | เลือก DC แล้วกด Run | มีค่าจาก `.op` + ชื่อโมเดล/binary/version + netlist | VB **2.0037 V**, VE **1.3329 V**, VC **9.0872 V**, VCE **7.7543 V**, IC **1.324 mA**, IB **8.887 µA**; `ngspice-47`, `2N3904`, `op: 1 points` | PASS |
+| B3 | เปลี่ยน RE | RE 1 → **2 kΩ**, รัน DC ใหม่ | IC ลดลง | IC **1.324 → 0.705 mA**, IB **8.887 → 5.065 µA**, VCE **7.7543 → 9.0315 V**, VB **2.0037 → 2.0727 V** | PASS |
+| B4 | Bode/AC | เลือก AC, RE กลับ 1 kΩ | แกน Hz, gain dB, phase deg, 121 จุด | `ac: 121 points` · gain **4.89 dB @ 1000 Hz** · phase **−179.87°** · label แกน `Frequency (Hz)`, `Gain (dB)`, `Phase (deg)` · tick `1e1…1e7` | PASS |
+| B5 | Transient 10 mV/1 kHz | เลือก Transient (Vin=10 mV, 1 kHz ค่าเดิม) | กราฟ Vin/Vout, เห็นเฟสกลับ | `tran: 1008 points` · 2 series (`vin`, `vout`) · DC offset เฉลี่ย **3.615e−05 V** (COUT ตัด DC) · peak Vout **0.01756 V** เทียบ Vin **0.010 V** → \|Aᵥ\| ≈ **1.756** = 4.89 dB ตรงกับ AC | PASS |
+| B6 | เปลี่ยน amplitude/frequency | tran: Vin 10 mV/1 kHz → **20 mV/2 kHz** | กราฟเปลี่ยนตามข้อมูลจริง | label แกน Y ตัวแรก `−0.02 → −0.04`, ขนาด SVG 34101 → 65457 อักขระ, gain ยัง ≈4.89 dB ตามคาด (ความถี่อยู่ในแบนด์) | PASS |
+| B7 | Invalid input + engine unavailable | ใส่ `RE=0` แล้วรัน / ทดสอบจำลองไม่มี binary | ข้อความไทย, HTTP 200, ไม่มีกราฟหรือค่าค้าง | `ngspice: R1, R2, RC, RE, RL ต้องมากกว่า 0` · ไม่มี `.spice-results` · ไม่มี `<svg>` · ค่า `0` ยังอยู่ในช่อง · engine-unavailable ตรวจด้วย `test_missing_binary_raises_thai_error` + `test_simulate_engine_error_has_no_results` (browser sub-case: NOT RUN) | PASS (browser) / NOT RUN (engine-unavailable ใน browser) |
+| B8 | Responsive desktop/mobile | Playwright `--viewport-size 1280,900` และ `390,844` แบบ full-page | อ่านได้ ไม่ตัดกราฟ | `docs/captures/lab04-desktop-viewport.png`, `docs/captures/lab04-mobile-viewport.png` · ฟอร์มเป็นคอลัมน์เดียวบน 390 px, กราฟอยู่ใน `.chart { overflow-x:auto }` | PASS |
+
+หลักฐานภาพเพิ่มเติมจาก OpenCode Browser: `docs/captures/lab04-desktop-dc.png` (ผล DC สำเร็จ), `docs/captures/lab04-narrow-dc.png` (ภาพแคบจาก screenshot tool — **ไม่ใช่** viewport จริง ใช้ `lab04-mobile-viewport.png` เป็นหลักฐาน mobile ที่แท้จริง)
+
+## 4. ความสอดคล้องข้าม analysis (ตรวจย้อนกลับได้)
+
+| ปริมาณ | จาก `.ac` | จาก `.tran` | ตรงกัน |
+|---|---|---|---|
+| Gain ที่ 1 kHz | 4.89 dB → 10^(4.89/20) = **1.756** | peak Vout / peak Vin = 0.01756 / 0.010 = **1.756** | ✓ |
+| เฟส | −179.87° | Vout มีค่าเป็นลบเมื่อ Vin เป็นบวก (กลับเฟส) | ✓ |
+| DC ที่ output | — | ค่าเฉลี่ย **3.615e−05 V** ≈ 0 เพราะ COUT ตัด DC (ไม่ใช่ VC ≈ 9 V) | ✓ |
+
+## 5. วิธีทำซ้ำ
+
+```bash
+.venv\Scripts\python.exe -m unittest discover -s tests -v   # 90 tests, OK
+.venv\Scripts\python.exe -m flask --app app run --debug     # http://127.0.0.1:5000/
+```
+
+ถ้าไม่มี ngspice ให้ตั้ง `NGSPICE_BIN` ชี้ถึง `ngspice_con.exe` — หน้าเว็บจะแสดงข้อความ `ไม่พบ ngspice: ...` แทนกราฟ (HTTP 200)
+
+## 6. สรุปข้อจำกัดที่ตรวจแล้ว
+
+- `.save all @q1[ic] @q1[ib]` จำเป็นเพื่อให้ OP plot มี `i(@q1[ic])` — ไม่มีบรรทัดนี้ parser จะไม่พบ IC
+- `ngspice.exe` บน Windows detach ทันที → ต้องใช้ `ngspice_con.exe` (หรือ env `NGSPICE_BIN`)
+- rawfile ที่ถูกตัด/ว่าง → `SpiceError` พร้อมข้อความไทย ไม่มี IndexError ใน chart helper (มี unit test ครอบ)
+- ทุก route คืน HTTP 200 แม้อินพุตผิดหรือ engine หาย (มี unit test ครอบ)
+
 
