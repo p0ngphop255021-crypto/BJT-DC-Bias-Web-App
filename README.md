@@ -77,11 +77,21 @@ python -m flask --app app run --debug
 
 - **ในเบราว์เซอร์:** กด `F12` → ปุ่ม Device toolbar (`Ctrl+Shift+M`) → เลือก `390×844` หรือ iPhone → reload `http://127.0.0.1:5000/`
 - **หรือ Playwright CLI (ถ่ายทีละหน้า ไม่ใช้ `--full-page`):** `npx playwright screenshot --channel chrome --viewport-size "390,844" http://127.0.0.1:5000/ docs/captures/lab04-mobile-form.png`
-- ภาพแต่ละภาพด้านล่างเป็น **หน้าจอเดียว ขนาด 390×844 พอดี** (ถ่ายแบบไม่ full-page แล้วเลื่อนไปยังตำแหน่งที่ต้องการ) ไม่ใช่ภาพหน้ายาว: `window.innerWidth = 390`, `document.body.scrollWidth = 390` → ไม่มี horizontal scroll ทั้งหน้า; กราฟกว้าง 560 px อยู่ในกรอบ `.chart` กว้าง 318 px → **เลื่อนแนวนอนเฉพาะในกรอบกราฟ**
+- ภาพแต่ละภาพด้านล่างเป็น **หน้าจอเดียว ขนาด 390×844 CSS (1170×2532 px ที่ `deviceScaleFactor=3`)** ถ่ายแบบไม่ full-page แล้วเลื่อนไปยังตำแหน่งที่ต้องการ ⇒ ข้อความคม ไม่ใช่ภาพหน้ายาว: `window.innerWidth = 390`, `document.body.scrollWidth = 390` → ไม่มี horizontal scroll ทั้งหน้า; กราฟกว้าง 560 px อยู่ในกรอบ `.chart` กว้าง 318 px → **เลื่อนแนวนอนเฉพาะในกรอบกราฟ**
 
-| หน้า 1 — ฟอร์ม (บนสุด) | หน้า 2 — กราฟ AC หลังกด Run | หน้า 3 — กราฟ Transient หลังกด Run |
-|---|---|---|
-| ![Mobile form](docs/captures/lab04-mobile-form.png) | ![AC mobile](docs/captures/lab04-mobile-ac-chart.png) | ![Tran mobile](docs/captures/lab04-mobile-tran-chart.png) |
+ถ่ายแยกเป็น 6 หน้าตามลำดับที่ผู้ใช้เลื่อนจริง (ฟอร์ม Lab 4 สูงกว่า 1 จอ จึงแยกหน้าปุ่ม Run อีกหน้า):
+
+| หน้า 1 — ฟอร์ม Lab 3 (บนสุด) | หน้า 2 — ฟอร์ม Lab 4 (radio + ช่องกรอก) |
+|---|---|
+| ![Mobile form](docs/captures/lab04-mobile-form.png) | ![Sim form](docs/captures/lab04-mobile-sim-form.png) |
+
+| หน้า 3 — ปุ่ม Run ngspice | หน้า 4 — ผล DC (ตาราง ไม่มีกราฟ) |
+|---|---|
+| ![Run button](docs/captures/lab04-mobile-sim-run.png) | ![DC result](docs/captures/lab04-mobile-dc.png) |
+
+| หน้า 5 — กราฟ AC หลังกด Run | หน้า 6 — กราฟ Transient หลังกด Run |
+|---|---|
+| ![AC mobile](docs/captures/lab04-mobile-ac-chart.png) | ![Tran mobile](docs/captures/lab04-mobile-tran-chart.png) |
 
 > ต้องรันผ่าน Local Web Server เท่านั้น — ห้ามเปิดไฟล์ HTML ด้วย `file://`
 
