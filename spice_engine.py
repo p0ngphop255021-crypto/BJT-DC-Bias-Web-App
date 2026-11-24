@@ -4,6 +4,7 @@ Pure engineering module: no Flask, no request/response, no HTML.
 Inputs are SI floats; outputs are plain dicts and strings.
 """
 
+import functools
 import math
 import os
 import shutil
@@ -204,3 +205,157 @@ def build_netlist(params, analysis):
         ".end",
     ]
     return "\n".join(lines) + "\n"
+
+
+def find_ngspice(env=None):
+    """Locate a batch-capable ngspice binary, preferring ngspice_con."""
+    env = os.environ if env is None else env
+    configured = env.get(NGSPICE_BIN_ENV)
+    if configured and os.path.isfile(configured):
+        return configured
+    console = shutil.which("ngspice_con")
+    if console:
+        return console
+    plain = shutil.which("ngspice")
+    if plain:
+        # On Windows ngspice.exe is the GUI and detaches immediately in batch.
+        sibling = os.path.join(os.path.dirname(plain), "ngspice_con.exe")
+        if os.path.isfile(sibling):
+            return sibling
+        return plain
+    if os.path.isfile(KNOWN_WINDOWS_BINARY):
+        return KNOWN_WINDOWS_BINARY
+    raise SpiceError("ไม่พบ ngspice: กรุณาติดตั้ง ngspice หรือตั้งค่า NGSPICE_BIN")
+
+
+@functools.lru_cache(maxsize=None)
+def ngspice_version(binary):
+    """Return e.g. 'ngspice-47'; never fail the whole run over a version."""
+    try:
+        completed = subprocess.run(
+            [binary, "-v"], capture_output=True, text=True, timeout=5
+        )
+        for line in (completed.stdout + completed.stderr).splitlines():
+            if line.startswith("** ngspice-"):
+                return line.split(":", 1)[0].lstrip("*").strip()
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return "unknown"
+
+
+def run_netlist(netlist, binary, timeout=20.0):
+    """Run one netlist in an isolated temp dir; return (log_text, raw_text)."""
+    workdir = tempfile.mkdtemp(prefix="ngspice-lab04-")
+    try:
+        netlist_path = os.path.join(workdir, "ce.cir")
+        log_path = os.path.join(workdir, "run.log")
+        raw_path = os.path.join(workdir, "run.raw")
+        with open(netlist_path, "w", encoding="utf-8") as handle:
+            handle.write(netlist)
+        try:
+            completed = subprocess.run(
+                [binary, "-b", "-o", log_path, "-r", raw_path, netlist_path],
+                cwd=workdir,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise SpiceError("ngspice ใช้เวลาเกินกำหนด (timeout)") from exc
+        except OSError as exc:
+            raise SpiceError(f"ไม่พบ ngspice: {exc}") from exc
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or "").strip()[:200]
+            message = f"ngspice ทำงานไม่สำเร็จ (exit code {completed.returncode})"
+            raise SpiceError(f"{message}: {detail}" if detail else message)
+        try:
+            with open(log_path, encoding="utf-8", errors="replace") as handle:
+                log_text = handle.read()
+            with open(raw_path, encoding="utf-8", errors="replace") as handle:
+                raw_text = handle.read()
+        except OSError as exc:
+            raise SpiceError(f"อ่านผลจาก ngspice ไม่ได้: {exc}") from exc
+        if not raw_text.strip():
+            raise SpiceError("อ่านผลจาก ngspice ไม่ได้: rawfile ว่าง")
+        return log_text, raw_text
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+
+def _mean(values):
+    return sum(values) / len(values)
+
+
+def simulate(params, analysis):
+    """Run the real engine and return SI-unit results for one analysis."""
+    validate_params(params)
+    netlist = build_netlist(params, analysis)
+    binary = find_ngspice()
+    version = ngspice_version(binary)
+    _log, raw = run_netlist(netlist, binary)
+    plots = parse_raw_ascii(raw)
+    plot_key = {"dc": "op", "ac": "ac", "tran": "tran"}[analysis]
+    if plot_key not in plots:
+        raise SpiceError(f"อ่านผลจาก ngspice ไม่ได้: ไม่มีผล {analysis}")
+    plot = plots[plot_key]
+    result = {
+        "analysis": analysis,
+        "model": BJT_MODEL_NAME,
+        "binary": binary,
+        "version": version,
+        "netlist": netlist,
+        "raw_summary": f"{plot_key}: {len(plot['points'])} points",
+    }
+
+    if analysis == "dc":
+        result["values"] = {
+            "vb": raw_value(plot, "v(b)").real,
+            "ve": raw_value(plot, "v(e)").real,
+            "vc": raw_value(plot, "v(c)").real,
+            "vce": (raw_value(plot, "v(c)") - raw_value(plot, "v(e)")).real,
+            "ic": raw_value(plot, "i(@q1[ic])").real,
+            "ib": raw_value(plot, "i(@q1[ib])").real,
+        }
+        return result
+
+    count = len(plot["points"])
+    if analysis == "ac":
+        freq = [raw_value(plot, "frequency", i).real for i in range(count)]
+        vin = [raw_value(plot, "v(in)", i) for i in range(count)]
+        vout = [raw_value(plot, "v(out)", i) for i in range(count)]
+        gain_db = []
+        phase_deg = []
+        for source, load in zip(vin, vout):
+            ratio = load / source if source != 0 else complex(float("inf"), 0)
+            gain_db.append(20.0 * math.log10(abs(ratio)))
+            phase = math.degrees(math.atan2(load.imag, load.real)) - math.degrees(
+                math.atan2(source.imag, source.real)
+            )
+            while phase > 180:
+                phase -= 360
+            while phase <= -180:
+                phase += 360
+            phase_deg.append(phase)
+        nearest = min(range(count), key=lambda i: abs(math.log10(freq[i]) - 3))
+        result.update(
+            freq=freq,
+            gain_db=gain_db,
+            phase_deg=phase_deg,
+            gain_1k_db=gain_db[nearest],
+            gain_1k_hz=freq[nearest],
+        )
+        return result
+
+    time = [raw_value(plot, "time", i).real for i in range(count)]
+    vin = [raw_value(plot, "v(in)", i).real for i in range(count)]
+    vout_raw = [raw_value(plot, "v(out)", i).real for i in range(count)]
+    vin_dc = _mean(vin)
+    vout_dc = _mean(vout_raw)
+    result.update(
+        time=time,
+        vin=vin,
+        vout=[value - vout_dc for value in vout_raw],
+        vin_dc=vin_dc,
+        vout_dc=vout_dc,
+    )
+    return result
