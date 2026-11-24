@@ -70,6 +70,107 @@ def tran_stop(freq):
     return step, stop
 
 
+PLOT_KEYS = {
+    "Operating Point": "op",
+    "AC Analysis": "ac",
+    "Transient Analysis": "tran",
+}
+
+
+def _parse_number(token, complex_plot):
+    try:
+        if "," in token:
+            real, imag = token.split(",", 1)
+            return complex(float(real), float(imag))
+        value = float(token)
+        return complex(value, 0.0) if complex_plot else value
+    except ValueError as exc:
+        raise SpiceError(f"อ่านผลจาก ngspice ไม่ได้: {token}") from exc
+
+
+def parse_raw_ascii(text):
+    """Parse an ngspice ASCII rawfile into {plot_key: {variables, points}}."""
+    if not text or not text.strip():
+        raise SpiceError("อ่านผลจาก ngspice ไม่ได้: rawfile ว่าง")
+
+    blocks = []
+    current = None
+    for line in text.splitlines():
+        if line.startswith("Plotname:"):
+            current = {"name": line.split(":", 1)[1].strip(), "lines": []}
+            blocks.append(current)
+        elif current is not None:
+            current["lines"].append(line)
+    if not blocks:
+        raise SpiceError("อ่านผลจาก ngspice ไม่ได้: ไม่พบ Plotname")
+
+    plots = {}
+    for block in blocks:
+        key = PLOT_KEYS.get(block["name"])
+        if key is None:
+            continue
+        lines = block["lines"]
+        flags = ""
+        n_variables = n_points = None
+        variables = {}
+        values_at = None
+        for index, line in enumerate(lines):
+            if line.startswith("Flags:"):
+                flags = line.split(":", 1)[1].strip()
+            elif line.startswith("No. Variables:"):
+                n_variables = int(line.split(":", 1)[1].strip())
+            elif line.startswith("No. Points:"):
+                n_points = int(line.split(":", 1)[1].strip())
+            elif line.startswith("Variables:"):
+                for var_line in lines[index + 1:]:
+                    if not var_line.strip():
+                        break
+                    fields = var_line.split()
+                    if len(fields) < 2 or not fields[0].isdigit():
+                        break
+                    variables[fields[1]] = int(fields[0])
+            elif line.startswith("Values:"):
+                values_at = index + 1
+                break
+
+        if None in (n_variables, n_points) or not variables or values_at is None:
+            raise SpiceError(f"อ่านผลจาก ngspice ไม่ได้: {key} ไม่สมบูรณ์")
+        if n_points <= 0 or n_variables <= 0:
+            raise SpiceError(f"อ่านผลจาก ngspice ไม่ได้: {key} ไม่มีข้อมูล")
+
+        value_lines = lines[values_at:]
+        expected_lines = n_variables * n_points
+        if len(value_lines) < expected_lines:
+            raise SpiceError(f"อ่านผลจาก ngspice ไม่ได้: {key} ถูกตัด")
+        complex_plot = "complex" in flags
+        points = []
+        for point_index in range(n_points):
+            chunk = value_lines[point_index * n_variables:(point_index + 1) * n_variables]
+            row = []
+            for line in chunk:
+                fields = line.strip().split()
+                if not fields:
+                    raise SpiceError(f"อ่านผลจาก ngspice ไม่ได้: {key} ขาดค่า")
+                row.append(_parse_number(fields[-1], complex_plot))
+            points.append(row)
+        plots[key] = {"variables": variables, "points": points}
+
+    if not plots:
+        raise SpiceError("อ่านผลจาก ngspice ไม่ได้: ไม่พบ plot ที่รู้จัก")
+    return plots
+
+
+def raw_value(plot, name, point=0):
+    """Return a named variable from one point of a parsed plot."""
+    index = plot["variables"].get(name)
+    if index is None:
+        raise SpiceError(f"อ่านผลจาก ngspice ไม่ได้: ไม่มี {name}")
+    try:
+        return plot["points"][point][index]
+    except IndexError as exc:
+        raise SpiceError(f"อ่านผลจาก ngspice ไม่ได้: ไม่มีจุดที่ {point}") from exc
+
+
 def build_netlist(params, analysis):
     """Build a complete ASCII-raw ngspice deck for the chosen analysis."""
     validate_params(params)

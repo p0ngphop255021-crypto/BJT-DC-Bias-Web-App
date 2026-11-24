@@ -1,6 +1,10 @@
+import pathlib
 import unittest
 
 import spice_engine
+
+FIXTURES = pathlib.Path(__file__).parent / "fixtures"
+RAW = FIXTURES / "ce_reference.raw"
 
 PARAMS = dict(
     vcc=12.0,
@@ -65,6 +69,35 @@ class TestTranStop(unittest.TestCase):
         self.assertAlmostEqual(step, 5e-6)
         self.assertAlmostEqual(stop, 5e-3)
         self.assertLessEqual(spice_engine.tran_stop(1e6)[1], 50e-3)
+
+
+class TestParseRawAscii(unittest.TestCase):
+    def test_reference_fixture_parses_all_three_plots(self):
+        plots = spice_engine.parse_raw_ascii(RAW.read_text(encoding="utf-8"))
+        self.assertEqual(set(plots), {"op", "ac", "tran"})
+        self.assertEqual(len(plots["ac"]["points"]), 121)
+        self.assertIn("v(out)", plots["ac"]["variables"])
+
+    def test_op_voltage_and_transistor_current_available(self):
+        plots = spice_engine.parse_raw_ascii(RAW.read_text(encoding="utf-8"))
+        vb = spice_engine.raw_value(plots["op"], "v(b)")
+        ic = spice_engine.raw_value(plots["op"], "i(@q1[ic])")
+        self.assertGreater(vb.real, 1.0)
+        self.assertLess(vb.real, 3.0)
+        self.assertGreater(ic.real, 0.5e-3)
+        self.assertLess(ic.real, 5e-3)
+
+    def test_ac_values_are_complex_with_frequency(self):
+        plots = spice_engine.parse_raw_ascii(RAW.read_text(encoding="utf-8"))
+        f = spice_engine.raw_value(plots["ac"], "frequency", 0)
+        vout = spice_engine.raw_value(plots["ac"], "v(out)", 0)
+        self.assertAlmostEqual(f.real, 10.0)
+        self.assertTrue(hasattr(vout, "real") and hasattr(vout, "imag"))
+
+    def test_truncated_or_empty_raw_raises(self):
+        for text in ("", "Title: x\nPlotname: AC Analysis\n"):
+            with self.subTest(text=text[:20]), self.assertRaises(spice_engine.SpiceError):
+                spice_engine.parse_raw_ascii(text)
 
 
 if __name__ == "__main__":
