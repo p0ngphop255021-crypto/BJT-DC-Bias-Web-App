@@ -76,12 +76,12 @@ python -m flask --app app run --debug
 ### ดูบน Phone viewport
 
 - **ในเบราว์เซอร์:** กด `F12` → ปุ่ม Device toolbar (`Ctrl+Shift+M`) → เลือก `390×844` หรือ iPhone → reload `http://127.0.0.1:5000/`
-- **หรือ Playwright CLI:** `npx playwright screenshot --channel chrome --viewport-size "390,844" --full-page http://127.0.0.1:5000/ docs/captures/lab04-mobile-viewport.png`
-- ภาพด้านล่างถ่ายจาก viewport **390 px จริง** หลังกด Run (ไม่ใช่การย่อภาพจาก desktop): `window.innerWidth = 390`, `document.body.scrollWidth = 390` → ไม่มี horizontal scroll ทั้งหน้า; กราฟกว้าง 560 px อยู่ในกรอบ `.chart` กว้าง 318 px → **เลื่อนแนวนอนเฉพาะในกรอบกราฟ**
+- **หรือ Playwright CLI (ถ่ายทีละหน้า ไม่ใช้ `--full-page`):** `npx playwright screenshot --channel chrome --viewport-size "390,844" http://127.0.0.1:5000/ docs/captures/lab04-mobile-form.png`
+- ภาพแต่ละภาพด้านล่างเป็น **หน้าจอเดียว ขนาด 390×844 พอดี** (ถ่ายแบบไม่ full-page แล้วเลื่อนไปยังตำแหน่งที่ต้องการ) ไม่ใช่ภาพหน้ายาว: `window.innerWidth = 390`, `document.body.scrollWidth = 390` → ไม่มี horizontal scroll ทั้งหน้า; กราฟกว้าง 560 px อยู่ในกรอบ `.chart` กว้าง 318 px → **เลื่อนแนวนอนเฉพาะในกรอบกราฟ**
 
-| AC บนมือถือ | Transient บนมือถือ |
-|---|---|
-| ![AC mobile](docs/captures/lab04-mobile-ac-chart.png) | ![Tran mobile](docs/captures/lab04-mobile-tran-chart.png) |
+| หน้า 1 — ฟอร์ม (บนสุด) | หน้า 2 — กราฟ AC หลังกด Run | หน้า 3 — กราฟ Transient หลังกด Run |
+|---|---|---|
+| ![Mobile form](docs/captures/lab04-mobile-form.png) | ![AC mobile](docs/captures/lab04-mobile-ac-chart.png) | ![Tran mobile](docs/captures/lab04-mobile-tran-chart.png) |
 
 > ต้องรันผ่าน Local Web Server เท่านั้น — ห้ามเปิดไฟล์ HTML ด้วย `file://`
 
