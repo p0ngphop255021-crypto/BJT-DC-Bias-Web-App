@@ -6,6 +6,7 @@ render templates. All engineering math lives in dc_bias.py.
 from flask import Flask, render_template, request
 
 import spice_engine
+import spice_plots
 from dc_bias import solve, solve_emitter, solve_fixed
 
 app = Flask(__name__)
@@ -51,6 +52,7 @@ SIM_FIELD_DEFAULTS = {
     "beta": "100", "vbe": "0.7",
 }
 SIM_INPUT_FIELDS = tuple(SIM_FIELD_DEFAULTS)
+SIM_FORM_PREFIX = "sim_"
 
 
 def _parse_form(mode: str, form) -> tuple:
@@ -80,13 +82,15 @@ def _echo_form(mode: str, form) -> dict:
 
 def _parse_sim_form(form) -> tuple:
     """Parse the amplifier form (kΩ→Ω, µF→F, mV→V) and validate the analysis."""
-    analysis = form.get("analysis", "dc")
+    analysis = form.get("sim_analysis", "dc")
     if analysis not in SIM_ANALYSES:
         raise ValueError("analysis ต้องเป็น dc, ac หรือ tran")
-    if any(key not in form for key in SIM_INPUT_FIELDS):
+    if any(SIM_FORM_PREFIX + key not in form for key in SIM_INPUT_FIELDS):
         raise ValueError(FORM_ERROR)
     try:
-        values = {key: float(form[key]) for key in SIM_INPUT_FIELDS}
+        values = {
+            key: float(form[SIM_FORM_PREFIX + key]) for key in SIM_INPUT_FIELDS
+        }
     except ValueError:
         raise ValueError(FORM_ERROR) from None
     params = {
@@ -108,8 +112,11 @@ def _parse_sim_form(form) -> tuple:
 
 def _echo_sim_form(form) -> dict:
     """Raw submitted values so the amplifier form keeps what the user typed."""
-    echoed = {key: form.get(key, default) for key, default in SIM_FIELD_DEFAULTS.items()}
-    echoed["analysis"] = form.get("analysis", "dc")
+    echoed = {
+        key: form.get(SIM_FORM_PREFIX + key, default)
+        for key, default in SIM_FIELD_DEFAULTS.items()
+    }
+    echoed["analysis"] = form.get("sim_analysis", "dc")
     return echoed
 
 
@@ -119,6 +126,7 @@ def _simulation_context(**overrides) -> dict:
         "sim_error": None,
         "sim_form": dict(SIM_FIELD_DEFAULTS, analysis="dc"),
         "analytical": None,
+        "sim_chart": None,
     }
     defaults.update(overrides)
     return defaults
@@ -185,7 +193,7 @@ def calculate():
 @app.route("/simulate", methods=["POST"])
 def simulate():
     """Run ngspice for the CE amplifier and always render HTTP 200."""
-    analysis = request.form.get("analysis", "dc")
+    analysis = request.form.get("sim_analysis", "dc")
     sim_error = None
     simulation = None
     analytical = None
@@ -195,11 +203,27 @@ def simulate():
     except (KeyError, ValueError, spice_engine.SpiceError) as exc:
         sim_error = str(exc)
 
-    if simulation is not None and analysis == "dc":
-        analytical = solve(
-            params["vcc"], params["r1"], params["r2"], params["rc"],
-            params["re"], params["beta"], params["vbe"],
-        )
+    sim_chart = None
+    if simulation is not None:
+        try:
+            if analysis == "ac":
+                sim_chart = spice_plots.bode_svg(
+                    simulation["freq"], simulation["gain_db"], simulation["phase_deg"]
+                )
+            elif analysis == "tran":
+                sim_chart = spice_plots.wave_svg(
+                    simulation["time"], simulation["vin"], simulation["vout"]
+                )
+            if analysis == "dc":
+                analytical = solve(
+                    params["vcc"], params["r1"], params["r2"], params["rc"],
+                    params["re"], params["beta"], params["vbe"],
+                )
+        except (KeyError, TypeError, ValueError) as exc:
+            sim_error = f"อ่านผลจาก ngspice ไม่ได้: {exc}"
+            simulation = None
+            analytical = None
+            sim_chart = None
 
     return render_template(
         "index.html",
@@ -215,6 +239,7 @@ def simulate():
             sim_error=sim_error,
             sim_form=_echo_sim_form(request.form),
             analytical=analytical,
+            sim_chart=sim_chart,
         ),
     )
 

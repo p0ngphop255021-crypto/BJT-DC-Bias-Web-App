@@ -69,6 +69,92 @@
       </table>
     </section>
     {% endif %}
+
+    <hr class="section-divider">
+
+    <section class="lab4">
+      <h2>Lab 4 — CE Amplifier Simulator</h2>
+      <p class="lab4-intro">วงจร Common-Emitter แบบตัวหารแรงดัน จำลองด้วย ngspice จริง ('.op', '.ac', '.tran')</p>
+
+      <form action="/simulate" method="post" class="sim-form">
+        <fieldset class="analysis-picker">
+          <legend>Analysis</legend>
+          <label><input type="radio" name="sim_analysis" value="dc"{% if sim_form.analysis == 'dc' %} checked{% endif %}> DC — Operating Point (.op)</label>
+          <label><input type="radio" name="sim_analysis" value="ac"{% if sim_form.analysis == 'ac' %} checked{% endif %}> AC — Bode (.ac)</label>
+          <label><input type="radio" name="sim_analysis" value="tran"{% if sim_form.analysis == 'tran' %} checked{% endif %}> Transient (.tran)</label>
+        </fieldset>
+
+        <div class="fields">
+          <label for="sim-vcc">VCC (V) <input type="text" id="sim-vcc" name="sim_vcc" value="{{ sim_form.vcc }}"></label>
+          <label for="sim-r1">R1 (kΩ) <input type="text" id="sim-r1" name="sim_r1" value="{{ sim_form.r1 }}"></label>
+          <label for="sim-r2">R2 (kΩ) <input type="text" id="sim-r2" name="sim_r2" value="{{ sim_form.r2 }}"></label>
+          <label for="sim-rc">RC (kΩ) <input type="text" id="sim-rc" name="sim_rc" value="{{ sim_form.rc }}"></label>
+          <label for="sim-re">RE (kΩ) <input type="text" id="sim-re" name="sim_re" value="{{ sim_form.re }}"></label>
+          <label for="sim-rl">RL (kΩ) <input type="text" id="sim-rl" name="sim_rl" value="{{ sim_form.rl }}"></label>
+          <label for="sim-cin">CIN (µF) <input type="text" id="sim-cin" name="sim_cin" value="{{ sim_form.cin }}"></label>
+          <label for="sim-cout">COUT (µF) <input type="text" id="sim-cout" name="sim_cout" value="{{ sim_form.cout }}"></label>
+          <label for="sim-amp">Vin amplitude (mV peak) <input type="text" id="sim-amp" name="sim_amp" value="{{ sim_form.amp }}"></label>
+          <label for="sim-freq">Vin frequency (Hz) <input type="text" id="sim-freq" name="sim_freq" value="{{ sim_form.freq }}"></label>
+          <label for="sim-beta">β (analytical reference) <input type="text" id="sim-beta" name="sim_beta" value="{{ sim_form.beta }}"></label>
+          <label for="sim-vbe">VBE (V, analytical reference) <input type="text" id="sim-vbe" name="sim_vbe" value="{{ sim_form.vbe }}"></label>
+        </div>
+        <button type="submit">Run ngspice simulation</button>
+      </form>
+
+      {% if sim_error %}
+      <div class="error sim-error">ngspice: {{ sim_error }}</div>
+      {% endif %}
+
+      {% if simulation %}
+      <section class="spice-results">
+        <h3>ngspice — {% if simulation.analysis == 'dc' %}DC operating point (.op){% elif simulation.analysis == 'ac' %}AC frequency response (.ac){% else %}Transient response (.tran){% endif %}</h3>
+        <p class="engine-status">
+          <strong>Engine: ngspice (real run)</strong>
+          · model: {{ simulation.model }}
+          · binary: {{ simulation.binary }}
+          · version: {{ simulation.version }}
+          · {{ simulation.raw_summary }}
+        </p>
+
+        {% if simulation.analysis == 'dc' %}
+        <table>
+          <tr><th>VB</th><td>{{ "%.4f"|format(simulation["values"].vb) }} V</td></tr>
+          <tr><th>VE</th><td>{{ "%.4f"|format(simulation["values"].ve) }} V</td></tr>
+          <tr><th>VC</th><td>{{ "%.4f"|format(simulation["values"].vc) }} V</td></tr>
+          <tr><th>VCE</th><td>{{ "%.4f"|format(simulation["values"].vce) }} V</td></tr>
+          <tr><th>IC</th><td>{{ "%.3f"|format(simulation["values"].ic * 1000) }} mA</td></tr>
+          <tr><th>IB</th><td>{{ "%.3f"|format(simulation["values"].ib * 1000000) }} µA</td></tr>
+        </table>
+        {% elif simulation.analysis == 'ac' %}
+        <p class="chart-note">Gain = V(out)/V(in) ที่ node ก่อน CIN · {{ "%.2f"|format(simulation.gain_1k_db) }} dB ที่ {{ "%.0f"|format(simulation.gain_1k_hz) }} Hz</p>
+        <div class="chart">{{ sim_chart|safe }}</div>
+        {% else %}
+        <p class="chart-note">Vout = ผลต่างจาก DC offset เฉลี่ย {{ "%.6f"|format(simulation.vout_dc) }} V (CIN/COUT ตัด DC) · สัญญาณกลับเฟส 180°</p>
+        <div class="chart">{{ sim_chart|safe }}</div>
+        {% endif %}
+
+        <details class="netlist">
+          <summary>Netlist ที่ใช้ ({{ simulation.model }})</summary>
+          <pre>{{ simulation.netlist }}</pre>
+        </details>
+      </section>
+
+      {% if analytical %}
+      <section class="analytical-reference">
+        <h3>Analytical reference (dc_bias.py)</h3>
+        <p class="chart-note">คำนวณจากโมเดล β/VBE แบบแยกต่างหาก จึงไม่ต้องตรงกับค่าของโมเดล {{ simulation.model }} ใน ngspice</p>
+        <table>
+          <tr><th>VB</th><td>{{ "%.3f"|format(analytical.vb) }} V</td></tr>
+          <tr><th>VE</th><td>{{ "%.3f"|format(analytical.ve) }} V</td></tr>
+          <tr><th>VC</th><td>{{ "%.3f"|format(analytical.vc) }} V</td></tr>
+          <tr><th>VCE</th><td>{{ "%.3f"|format(analytical.vce) }} V</td></tr>
+          <tr><th>IC</th><td>{{ "%.3f"|format(analytical.ic * 1000) }} mA</td></tr>
+          <tr><th>IB</th><td>{{ "%.3f"|format(analytical.ib * 1000000) }} µA</td></tr>
+        </table>
+      </section>
+      {% endif %}
+      {% endif %}
+    </section>
   </main>
 </body>
 </html>

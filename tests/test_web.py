@@ -9,10 +9,10 @@ from app import app
 
 
 SIM_FORM = {
-    "analysis": "dc",
-    "vcc": "12", "r1": "100", "r2": "22", "rc": "2.2",
-    "re": "1", "rl": "10", "cin": "10", "cout": "10",
-    "amp": "10", "freq": "1000", "beta": "100", "vbe": "0.7",
+    "sim_analysis": "dc",
+    "sim_vcc": "12", "sim_r1": "100", "sim_r2": "22", "sim_rc": "2.2",
+    "sim_re": "1", "sim_rl": "10", "sim_cin": "10", "sim_cout": "10",
+    "sim_amp": "10", "sim_freq": "1000", "sim_beta": "100", "sim_vbe": "0.7",
 }
 
 
@@ -250,14 +250,14 @@ class TestSimulateRoute(unittest.TestCase):
 
     def test_simulate_rejects_zero_re_with_200(self):
         with captured_templates() as templates:
-            resp = self.post({"re": "0"})
+            resp = self.post({"sim_re": "0"})
         context = templates[-1][1]
         self.assertEqual(resp.status_code, 200)
         self.assertIn("มากกว่า 0", context["sim_error"])
         self.assertIsNone(context["simulation"])
 
     def test_simulate_rejects_missing_or_text_field(self):
-        data = {k: v for k, v in SIM_FORM.items() if k != "rl"}
+        data = {k: v for k, v in SIM_FORM.items() if k != "sim_rl"}
         with captured_templates() as templates:
             resp = self.client.post("/simulate", data=data)
         context = templates[-1][1]
@@ -267,7 +267,7 @@ class TestSimulateRoute(unittest.TestCase):
 
     def test_simulate_rejects_non_finite_input(self):
         with captured_templates() as templates:
-            resp = self.post({"vcc": "1e309"})
+            resp = self.post({"sim_vcc": "1e309"})
         context = templates[-1][1]
         self.assertEqual(resp.status_code, 200)
         self.assertIn("finite", context["sim_error"])
@@ -306,15 +306,109 @@ class TestSimulateRoute(unittest.TestCase):
         self.assertIn("ic", context["analytical"])
 
     def test_simulate_analysis_is_forwarded(self):
-        with mock.patch.object(app_module.spice_engine, "simulate", return_value={"analysis": "ac"}) as sim:
-            self.post({"analysis": "ac"})
+        with mock.patch.object(app_module.spice_engine, "simulate", return_value={"sim_analysis": "ac"}) as sim:
+            self.post({"sim_analysis": "ac"})
         self.assertEqual(sim.call_args.args[1], "ac")
 
     def test_simulate_rejects_unknown_analysis(self):
         with captured_templates() as templates:
-            resp = self.post({"analysis": "noise"})
+            resp = self.post({"sim_analysis": "noise"})
         self.assertEqual(resp.status_code, 200)
         self.assertIn("analysis", templates[-1][1]["sim_error"])
+
+
+def fake_dc_result():
+    return {
+        "analysis": "dc", "model": "2N3904", "binary": "ngspice_con",
+        "version": "ngspice-47", "netlist": "* test netlist",
+        "raw_summary": "op: 1 points",
+        "values": {"vb": 2.0037, "ve": 1.3329, "vc": 9.0872, "vce": 7.7543,
+                   "ic": 0.00133, "ib": 0.00001},
+    }
+
+
+def fake_ac_result():
+    return {
+        "analysis": "ac", "model": "2N3904", "binary": "ngspice_con",
+        "version": "ngspice-47", "netlist": "* test netlist",
+        "raw_summary": "ac: 121 points",
+        "freq": [10.0, 100.0, 1000.0, 10000.0],
+        "gain_db": [4.7, 4.9, 4.9, 4.8],
+        "phase_deg": [-178.0, -176.0, -175.0, -170.0],
+        "gain_1k_db": 4.9, "gain_1k_hz": 1000.0,
+    }
+
+
+def fake_tran_result(amp=0.01):
+    return {
+        "analysis": "tran", "model": "2N3904", "binary": "ngspice_con",
+        "version": "ngspice-47", "netlist": "* test netlist",
+        "raw_summary": "tran: 5 points",
+        "time": [0.0, 0.001, 0.002, 0.003, 0.004],
+        "vin": [0.0, amp, 0.0, -amp, 0.0],
+        "vout": [0.0, -amp * 100, 0.0, amp * 100, 0.0],
+        "vin_dc": 0.0, "vout_dc": 0.0001,
+    }
+
+
+class TestSimulateRendering(unittest.TestCase):
+    def setUp(self):
+        self.client = app.test_client()
+
+    def post(self, overrides=None):
+        data = dict(SIM_FORM)
+        if overrides:
+            data.update(overrides)
+        return self.client.post("/simulate", data=data)
+
+    def test_dc_page_separates_spice_and_analytical(self):
+        with mock.patch.object(app_module.spice_engine, "simulate", return_value=fake_dc_result()):
+            html = self.post().get_data(as_text=True)
+        self.assertIn('class="spice-results"', html)
+        self.assertIn('class="analytical-reference"', html)
+        self.assertIn("ngspice", html)
+        self.assertIn("Analytical", html)
+        self.assertIn("2N3904", html)
+        self.assertIn("1.330 mA", html)
+
+    def test_ac_page_has_bode_svg_with_axes(self):
+        with mock.patch.object(app_module.spice_engine, "simulate", return_value=fake_ac_result()):
+            html = self.post({"sim_analysis": "ac"}).get_data(as_text=True)
+        self.assertIn("<svg", html)
+        self.assertIn("Gain (dB)", html)
+        self.assertIn("Phase (deg)", html)
+        self.assertIn("Frequency (Hz)", html)
+
+    def test_tran_page_has_waveform_and_dc_offset_note(self):
+        with mock.patch.object(app_module.spice_engine, "simulate",
+                               side_effect=lambda p, a: fake_tran_result(p["amp"])):
+            html = self.post({"sim_analysis": "tran"}).get_data(as_text=True)
+        self.assertIn('data-series="vout"', html)
+        self.assertIn("DC offset", html)
+        self.assertIn("Time (ms)", html)
+
+    def test_changing_source_changes_rendered_chart(self):
+        def run(p, a):
+            return fake_tran_result(p["amp"])
+
+        charts = []
+        for amplitude in ("10", "20"):
+            with mock.patch.object(app_module.spice_engine, "simulate", side_effect=run):
+                html = self.post({"sim_analysis": "tran", "sim_amp": amplitude}).get_data(as_text=True)
+            start = html.index('<div class="chart">')
+            end = html.index("</div>", start)
+            charts.append(html[start:end])
+        self.assertNotEqual(charts[0], charts[1])
+
+    def test_engine_error_renders_no_charts_or_stale_results(self):
+        def boom(*args, **kwargs):
+            raise app_module.spice_engine.SpiceError("ไม่พบ ngspice: test")
+
+        with mock.patch.object(app_module.spice_engine, "simulate", boom):
+            html = self.post().get_data(as_text=True)
+        self.assertIn("ไม่พบ ngspice: test", html)
+        self.assertNotIn("<svg", html)
+        self.assertNotIn('class="spice-results"', html)
 
 
 if __name__ == "__main__":
