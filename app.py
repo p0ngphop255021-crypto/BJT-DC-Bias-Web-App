@@ -5,6 +5,7 @@ render templates. All engineering math lives in dc_bias.py.
 """
 from flask import Flask, render_template, request
 
+import spice_engine
 from dc_bias import solve, solve_emitter, solve_fixed
 
 app = Flask(__name__)
@@ -43,6 +44,14 @@ UNKNOWN_MODE_ERROR = (
     "หรือ Emitter Bias"
 )
 
+SIM_ANALYSES = ("dc", "ac", "tran")
+SIM_FIELD_DEFAULTS = {
+    "vcc": "12", "r1": "100", "r2": "22", "rc": "2.2", "re": "1",
+    "rl": "10", "cin": "10", "cout": "10", "amp": "10", "freq": "1000",
+    "beta": "100", "vbe": "0.7",
+}
+SIM_INPUT_FIELDS = tuple(SIM_FIELD_DEFAULTS)
+
 
 def _parse_form(mode: str, form) -> tuple:
     """Parse common fields plus the resistors this mode needs (kΩ→Ω)."""
@@ -69,6 +78,52 @@ def _echo_form(mode: str, form) -> dict:
     }
 
 
+def _parse_sim_form(form) -> tuple:
+    """Parse the amplifier form (kΩ→Ω, µF→F, mV→V) and validate the analysis."""
+    analysis = form.get("analysis", "dc")
+    if analysis not in SIM_ANALYSES:
+        raise ValueError("analysis ต้องเป็น dc, ac หรือ tran")
+    if any(key not in form for key in SIM_INPUT_FIELDS):
+        raise ValueError(FORM_ERROR)
+    try:
+        values = {key: float(form[key]) for key in SIM_INPUT_FIELDS}
+    except ValueError:
+        raise ValueError(FORM_ERROR) from None
+    params = {
+        "vcc": values["vcc"],
+        "r1": values["r1"] * 1000,
+        "r2": values["r2"] * 1000,
+        "rc": values["rc"] * 1000,
+        "re": values["re"] * 1000,
+        "rl": values["rl"] * 1000,
+        "cin": values["cin"] / 1e6,
+        "cout": values["cout"] / 1e6,
+        "amp": values["amp"] / 1000,
+        "freq": values["freq"],
+        "beta": values["beta"],
+        "vbe": values["vbe"],
+    }
+    return analysis, params
+
+
+def _echo_sim_form(form) -> dict:
+    """Raw submitted values so the amplifier form keeps what the user typed."""
+    echoed = {key: form.get(key, default) for key, default in SIM_FIELD_DEFAULTS.items()}
+    echoed["analysis"] = form.get("analysis", "dc")
+    return echoed
+
+
+def _simulation_context(**overrides) -> dict:
+    defaults = {
+        "simulation": None,
+        "sim_error": None,
+        "sim_form": dict(SIM_FIELD_DEFAULTS, analysis="dc"),
+        "analytical": None,
+    }
+    defaults.update(overrides)
+    return defaults
+
+
 @app.route("/", methods=["GET"])
 def index():
     mode = request.args.get("mode", DEFAULT_MODE)
@@ -86,6 +141,7 @@ def index():
         mode_known=mode_known,
         modes=MODES,
         form=dict(FIELD_DEFAULTS[mode]),
+        **_simulation_context(),
     )
 
 
@@ -122,6 +178,44 @@ def calculate():
         mode_known=mode_known,
         modes=MODES,
         form=_echo_form(mode, request.form),
+        **_simulation_context(),
+    )
+
+
+@app.route("/simulate", methods=["POST"])
+def simulate():
+    """Run ngspice for the CE amplifier and always render HTTP 200."""
+    analysis = request.form.get("analysis", "dc")
+    sim_error = None
+    simulation = None
+    analytical = None
+    try:
+        analysis, params = _parse_sim_form(request.form)
+        simulation = spice_engine.simulate(params, analysis)
+    except (KeyError, ValueError, spice_engine.SpiceError) as exc:
+        sim_error = str(exc)
+
+    if simulation is not None and analysis == "dc":
+        analytical = solve(
+            params["vcc"], params["r1"], params["r2"], params["rc"],
+            params["re"], params["beta"], params["vbe"],
+        )
+
+    return render_template(
+        "index.html",
+        error=None,
+        result=None,
+        mode=DEFAULT_MODE,
+        mode_label=MODES[DEFAULT_MODE],
+        mode_known=True,
+        modes=MODES,
+        form=dict(FIELD_DEFAULTS[DEFAULT_MODE]),
+        **_simulation_context(
+            simulation=simulation,
+            sim_error=sim_error,
+            sim_form=_echo_sim_form(request.form),
+            analytical=analytical,
+        ),
     )
 
 

@@ -1,6 +1,33 @@
 import unittest
+from contextlib import contextmanager
+from unittest import mock
 
+from flask import template_rendered
+
+import app as app_module
 from app import app
+
+
+SIM_FORM = {
+    "analysis": "dc",
+    "vcc": "12", "r1": "100", "r2": "22", "rc": "2.2",
+    "re": "1", "rl": "10", "cin": "10", "cout": "10",
+    "amp": "10", "freq": "1000", "beta": "100", "vbe": "0.7",
+}
+
+
+@contextmanager
+def captured_templates():
+    recorded = []
+
+    def record(sender, template, context, **extra):
+        recorded.append((template, context))
+
+    template_rendered.connect(record, app)
+    try:
+        yield recorded
+    finally:
+        template_rendered.disconnect(record, app)
 
 
 class TestIndex(unittest.TestCase):
@@ -209,6 +236,85 @@ class TestModeForm(unittest.TestCase):
             "mode": "fixed", "vcc": "12", "rb": "0", "rc": "2.2",
             "beta": "100", "vbe": "0.7"}).get_data(as_text=True)
         self.assertIn('value="0"', html)
+
+
+class TestSimulateRoute(unittest.TestCase):
+    def setUp(self):
+        self.client = app.test_client()
+
+    def post(self, overrides=None):
+        data = dict(SIM_FORM)
+        if overrides:
+            data.update(overrides)
+        return self.client.post("/simulate", data=data)
+
+    def test_simulate_rejects_zero_re_with_200(self):
+        with captured_templates() as templates:
+            resp = self.post({"re": "0"})
+        context = templates[-1][1]
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("มากกว่า 0", context["sim_error"])
+        self.assertIsNone(context["simulation"])
+
+    def test_simulate_rejects_missing_or_text_field(self):
+        data = {k: v for k, v in SIM_FORM.items() if k != "rl"}
+        with captured_templates() as templates:
+            resp = self.client.post("/simulate", data=data)
+        context = templates[-1][1]
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("กรอกข้อมูลให้ครบ", context["sim_error"])
+        self.assertIsNone(context["simulation"])
+
+    def test_simulate_rejects_non_finite_input(self):
+        with captured_templates() as templates:
+            resp = self.post({"vcc": "1e309"})
+        context = templates[-1][1]
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("finite", context["sim_error"])
+
+    def test_simulate_engine_error_has_no_results(self):
+        def boom(*args, **kwargs):
+            raise app_module.spice_engine.SpiceError("ไม่พบ ngspice: test")
+
+        with mock.patch.object(app_module.spice_engine, "simulate", boom), \
+             captured_templates() as templates:
+            resp = self.post()
+        context = templates[-1][1]
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(context["sim_error"], "ไม่พบ ngspice: test")
+        self.assertIsNone(context["simulation"])
+        self.assertIsNone(context["analytical"])
+
+    def test_simulate_success_passes_si_params_and_analytical(self):
+        fake = {
+            "analysis": "dc", "model": "2N3904", "binary": "ngspice_con",
+            "version": "ngspice-47", "netlist": "* net", "raw_summary": "op: 1 points",
+            "values": {"vb": 2.0, "ve": 1.33, "vc": 9.09, "vce": 7.76,
+                       "ic": 0.00133, "ib": 0.00001},
+        }
+        with mock.patch.object(app_module.spice_engine, "simulate", return_value=fake) as sim, \
+             captured_templates() as templates:
+            resp = self.post()
+        context = templates[-1][1]
+        self.assertEqual(resp.status_code, 200)
+        self.assertIsNone(context["sim_error"])
+        self.assertEqual(context["simulation"], fake)
+        params = sim.call_args.args[0]
+        self.assertEqual(params["r1"], 100000.0)
+        self.assertEqual(params["cin"], 10e-6)
+        self.assertEqual(params["amp"], 0.01)
+        self.assertIn("ic", context["analytical"])
+
+    def test_simulate_analysis_is_forwarded(self):
+        with mock.patch.object(app_module.spice_engine, "simulate", return_value={"analysis": "ac"}) as sim:
+            self.post({"analysis": "ac"})
+        self.assertEqual(sim.call_args.args[1], "ac")
+
+    def test_simulate_rejects_unknown_analysis(self):
+        with captured_templates() as templates:
+            resp = self.post({"analysis": "noise"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("analysis", templates[-1][1]["sim_error"])
 
 
 if __name__ == "__main__":
