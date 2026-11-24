@@ -176,6 +176,8 @@ templates/index.html แสดง IC เป็น mA (×1000) และ VCE เ�
 
 หลักฐานภาพกราฟจาก OpenCode Browser (รันจริงแล้วกด Run): `docs/captures/lab04-ac-chart.png` (Bode gain/phase), `docs/captures/lab04-tran-chart.png` (Vin/Vout) — ทั้งสองเป็น inline SVG ที่แอปสร้างจาก rawfile ไม่ใช่ภาพพื้นหลัง
 
+ภาพขยายเฉพาะกราฟ: `docs/captures/lab04-ac-chart-detail.png`, `docs/captures/lab04-tran-10mv-1k-chart-detail.png`, `docs/captures/lab04-tran-20mv-2k-chart-detail.png` — ใช้เปรียบเทียบ B4/B5/B6 โดยตรง ความคล้ายของกราฟ Tran สองภาพมาจากการ scale แกน Y อัตโนมัติ (ข้อมูลเพิ่ม 2× → label แกนเพิ่ม 2× เช่นกัน) ไม่ใช่กราฟค้าง: จุดข้อมูล 1008 → 2008, label `−0.02 → −0.04`, ความยาว SVG 34101 → 65457 อักขระ, และ polyline string เปลี่ยนทุกจุด (2008 จุด)
+
 หลักฐานภาพเพิ่มเติมจาก OpenCode Browser: `docs/captures/lab04-desktop-dc.png` (ผล DC สำเร็จ), `docs/captures/lab04-narrow-dc.png` (ภาพแคบจาก screenshot tool — **ไม่ใช่** viewport จริง ใช้ `lab04-mobile-viewport.png` เป็นหลักฐาน mobile ที่แท้จริง) หมายเหตุ: ไฟล์ `lab04-*-viewport.png` ถ่ายตอนยังไม่ได้รัน simulation จึงไม่มีกราฟตามออกแบบ — ต้องดูสองไฟล์ `*-chart.png` ข้างบนหรือกด Run ในเบราว์เซอร์
 
 ## 4. ความสอดคล้องข้าม analysis (ตรวจย้อนกลับได้)

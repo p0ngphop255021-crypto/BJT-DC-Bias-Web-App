@@ -65,6 +65,14 @@ python -m flask --app app run --debug
 |---|---|
 | ![AC Bode plot](docs/captures/lab04-ac-chart.png) | ![Transient waveform](docs/captures/lab04-tran-chart.png) |
 
+ภาพขยายเฉพาะกราฟ (scroll ไปที่กราฟแล้วถ่าย) — เปรียบเทียบโครงสร้างและการตอบสนองต่ออินพุต:
+
+| AC Bode (2 panel, log Hz) | Tran 10 mV / 1 kHz | Tran 20 mV / 2 kHz |
+|---|---|---|
+| ![AC detail](docs/captures/lab04-ac-chart-detail.png) | ![Tran 10 mV 1 kHz](docs/captures/lab04-tran-10mv-1k-chart-detail.png) | ![Tran 20 mV 2 kHz](docs/captures/lab04-tran-20mv-2k-chart-detail.png) |
+
+**ทำไมกราฟ Tran สองภาพถึงดูคล้ายกัน?** แกน Y คำนวณอัตโนมัติจากข้อมูล (`nice_range`) เมื่อเพิ่ม amplitude 2× ทั้ง Vin และ Vout สเกลแกน Y ก็เพิ่ม 2× ตาม (`±0.02 V` → `±0.04 V`) รูปคลื่นจึงอยู่ตำแหน่งพิกเซลใกล้เดิม — แต่จำนวนจุดเพิ่ม 1008 → 2008 (ความถี่ 1→2 kHz) และค่าบนแกนเปลี่ยนจริง ตรวจตัวเลขได้ใน `docs/validation.md` B6 ส่วน AC กับ Tran เป็นคนละชนิดกราฟ (2 panel log-frequency เทียบ 1 panel time-domain)
+
 > ต้องรันผ่าน Local Web Server เท่านั้น — ห้ามเปิดไฟล์ HTML ด้วย `file://`
 
 ## รัน automated tests
